@@ -1,0 +1,73 @@
+name: cda_rpto
+description: CDA RPTO Management App - Chennai Drone Academy
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+    sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+    flutter:
+        sdk: flutter
+
+    cupertino_icons: ^1.0.6
+
+    # Firebase
+    firebase_core: ^4.11.0
+    firebase_auth: ^6.5.4
+    cloud_firestore: ^6.6.0
+    firebase_storage: ^13.4.3
+
+    # File / Image picking (documents, camera etc.)
+    file_picker: ^8.1.4
+    image_picker: ^1.1.2
+
+    # QR / Barcode (future scope - drone/equipment tracking)
+    mobile_scanner: ^6.0.2
+    qr_flutter: ^4.1.0
+
+    # Utils
+    intl: ^0.19.0
+    uuid: ^4.5.1
+    provider: ^6.1.2
+    firebase_messaging: ^16.4.1
+
+    # Fonts
+    google_fonts: ^6.2.1
+
+    # Cloudinary upload
+    http: ^1.2.0
+
+    # Open uploaded documents (PDF/image links)
+    url_launcher: ^6.3.0
+
+    # Document export (PDF / Excel)
+    pdf: ^3.11.1
+    printing: ^5.13.4
+    excel: ^4.0.6
+    path_provider: ^2.1.4
+    share_plus: ^10.1.2
+
+    # Local on-device settings persistence (Dark Mode, Language, etc. —
+    # Profile screen's ThemeProvider / LanguageProvider)
+    shared_preferences: ^2.3.2
+
+    # App version/build number shown on the Profile "About App" dialog
+    package_info_plus: ^8.1.1
+
+dev_dependencies:
+    flutter_test:
+        sdk: flutter
+    flutter_lints: ^4.0.0
+
+flutter:
+    uses-material-design: true
+    assets:
+        - lib/assets/images/logo.webp
+        - lib/assets/images/company_details.jpeg
+        - lib/assets/images/instructor.jpeg
+        - lib/assets/images/drone.jpeg
+        - lib/assets/images/simulator.jpeg
+        - lib/assets/images/student.jpeg
+        - lib/assets/images/batch_list.png
+        - lib/assets/images/splash_screen.png

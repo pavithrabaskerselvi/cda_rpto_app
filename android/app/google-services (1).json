@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1096094668399",
+    "project_id": "cda-rpto-app",
+    "storage_bucket": "cda-rpto-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1096094668399:android:68d1661620d9bb6ce9df9a",
+        "android_client_info": {
+          "package_name": "com.example.cda_rpto_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDcHnO-zfx-5Ujl-jXOYal6AoKFYjJoT-g"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
