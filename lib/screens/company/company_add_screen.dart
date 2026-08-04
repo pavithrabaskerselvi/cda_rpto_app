@@ -15,6 +15,7 @@ class CompanyAddScreen extends StatefulWidget {
 class _CompanyAddScreenState extends State<CompanyAddScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
+  final _tradeNameController = TextEditingController();
   final _regController = TextEditingController();
   final _addressController = TextEditingController();
   final _cityController = TextEditingController();
@@ -33,6 +34,7 @@ class _CompanyAddScreenState extends State<CompanyAddScreen> {
     try {
       await FirebaseFirestore.instance.collection('companies').add({
         'name': _nameController.text.trim(),
+        'tradeName': _tradeNameController.text.trim(),
         'registrationNumber': _regController.text.trim(),
         'address': _addressController.text.trim(),
         'city': _cityController.text.trim(),
@@ -47,7 +49,7 @@ class _CompanyAddScreenState extends State<CompanyAddScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Details added successfully'),
+            content: Text('Company added successfully'),
             backgroundColor: kGreen,
           ),
         );
@@ -67,6 +69,7 @@ class _CompanyAddScreenState extends State<CompanyAddScreen> {
   @override
   void dispose() {
     _nameController.dispose();
+    _tradeNameController.dispose();
     _regController.dispose();
     _addressController.dispose();
     _cityController.dispose();
@@ -112,7 +115,7 @@ class _CompanyAddScreenState extends State<CompanyAddScreen> {
               size: 18, color: isDark ? c.textSecondary : c.accent),
           Switch(
             value: isDark,
-            activeColor: c.accent,
+            activeThumbColor: c.accent,
             onChanged: (val) => context.read<ThemeProvider>().toggleTheme(val),
           ),
           Icon(Icons.nightlight_round,
@@ -140,21 +143,29 @@ class _CompanyAddScreenState extends State<CompanyAddScreen> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            _buildLabel('Company / Branch Name', c),
+            _buildLabel('Company Name', c),
             TextFormField(
               controller: _nameController,
               style: TextStyle(color: c.textPrimary),
-              decoration: _fieldDecoration('e.g. Chennai Drone Academy - Main', c),
+              decoration: _fieldDecoration('e.g. Chennai Drone Academy', c),
               validator: (val) => val == null || val.trim().isEmpty ? 'Name required' : null,
             ),
             const SizedBox(height: 16),
 
-            _buildLabel('Registration Number', c),
+            _buildLabel('Trade Name', c),
+            TextFormField(
+              controller: _tradeNameController,
+              style: TextStyle(color: c.textPrimary),
+              decoration: _fieldDecoration('e.g. SkyLynk Drones', c),
+            ),
+            const SizedBox(height: 16),
+
+            _buildLabel('Authorization Number', c),
             TextFormField(
               controller: _regController,
               style: TextStyle(color: c.textPrimary),
-              decoration: _fieldDecoration('e.g. RPTO/REG/2026/001', c),
-              validator: (val) => val == null || val.trim().isEmpty ? 'Registration number required' : null,
+              decoration: _fieldDecoration('e.g. RPTO/AUTH/2026/001', c),
+              validator: (val) => val == null || val.trim().isEmpty ? 'Authorization number required' : null,
             ),
             const SizedBox(height: 16),
 
@@ -218,7 +229,7 @@ class _CompanyAddScreenState extends State<CompanyAddScreen> {
               controller: _emailController,
               keyboardType: TextInputType.emailAddress,
               style: TextStyle(color: c.textPrimary),
-              decoration: _fieldDecoration('e.g. branch@cda.com', c),
+              decoration: _fieldDecoration('e.g. company@cda.com', c),
               validator: (val) {
                 if (val == null || val.trim().isEmpty) return 'Email required';
                 if (!val.contains('@')) return 'Enter a valid email';

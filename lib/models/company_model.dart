@@ -4,6 +4,7 @@ import '../widgets/attach_document_button.dart';
 class CompanyModel {
   final String id;
   final String name;
+  final String tradeName;
   final String registrationNumber;
   final String address;
   final String city;
@@ -12,7 +13,7 @@ class CompanyModel {
   final String contactEmail;
   final String contactPhone;
   final String status; // "Active" or "Inactive"
-  final String? parentCompanyId; // NEW: null/empty = main company, else = branch
+  final String? parentCompanyId; // null/empty = main company, else = branch
   final DateTime createdAt;
   final DateTime? updatedAt;
   final List<AttachedDocument> documents;
@@ -20,6 +21,7 @@ class CompanyModel {
   CompanyModel({
     required this.id,
     required this.name,
+    this.tradeName = '',
     required this.registrationNumber,
     required this.address,
     required this.city,
@@ -28,7 +30,7 @@ class CompanyModel {
     required this.contactEmail,
     required this.contactPhone,
     required this.status,
-    this.parentCompanyId, // NEW
+    this.parentCompanyId,
     required this.createdAt,
     this.updatedAt,
     this.documents = const [],
@@ -41,6 +43,7 @@ class CompanyModel {
     return CompanyModel(
       id: documentId,
       name: map['name'] ?? '',
+      tradeName: map['tradeName'] ?? '',
       registrationNumber: map['registrationNumber'] ?? '',
       address: map['address'] ?? '',
       city: map['city'] ?? '',
@@ -49,7 +52,7 @@ class CompanyModel {
       contactEmail: map['contactEmail'] ?? '',
       contactPhone: map['contactPhone'] ?? '',
       status: map['status'] ?? 'Active',
-      parentCompanyId: map['parentCompanyId'], // NEW
+      parentCompanyId: map['parentCompanyId'],
       createdAt: map['createdAt'] != null
           ? (map['createdAt'] as Timestamp).toDate()
           : DateTime.now(),
@@ -70,6 +73,7 @@ class CompanyModel {
   Map<String, dynamic> toMap() {
     return {
       'name': name,
+      'tradeName': tradeName,
       'registrationNumber': registrationNumber,
       'address': address,
       'city': city,
@@ -78,7 +82,7 @@ class CompanyModel {
       'contactEmail': contactEmail,
       'contactPhone': contactPhone,
       'status': status,
-      'parentCompanyId': parentCompanyId, // NEW
+      'parentCompanyId': parentCompanyId,
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': updatedAt != null ? Timestamp.fromDate(updatedAt!) : FieldValue.serverTimestamp(),
       'documents': documents.map((d) => d.toMap()).toList(),
@@ -87,6 +91,7 @@ class CompanyModel {
 
   CompanyModel copyWith({
     String? name,
+    String? tradeName,
     String? registrationNumber,
     String? address,
     String? city,
@@ -95,13 +100,14 @@ class CompanyModel {
     String? contactEmail,
     String? contactPhone,
     String? status,
-    String? parentCompanyId, // NEW
+    String? parentCompanyId,
     DateTime? updatedAt,
     List<AttachedDocument>? documents,
   }) {
     return CompanyModel(
       id: id,
       name: name ?? this.name,
+      tradeName: tradeName ?? this.tradeName,
       registrationNumber: registrationNumber ?? this.registrationNumber,
       address: address ?? this.address,
       city: city ?? this.city,
@@ -110,7 +116,7 @@ class CompanyModel {
       contactEmail: contactEmail ?? this.contactEmail,
       contactPhone: contactPhone ?? this.contactPhone,
       status: status ?? this.status,
-      parentCompanyId: parentCompanyId ?? this.parentCompanyId, // NEW
+      parentCompanyId: parentCompanyId ?? this.parentCompanyId,
       createdAt: createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       documents: documents ?? this.documents,

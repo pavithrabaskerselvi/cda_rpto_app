@@ -528,7 +528,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                             ),
                             _TapColorCard(
                               title: 'Batches',
-                              imagePath: 'lib/assets/images/batch_list.png',
+                              imagePath: 'lib/assets/images/batch_list.jpeg',
                               color: AppColors.coral,
                               controller: _pulseController,
                               onTap: () => Navigator.push(context,
@@ -1056,6 +1056,10 @@ class _InstrumentCard extends StatelessWidget {
 // is to tight-crop the source PNG (remove the transparent margins) rather
 // than changing the fit here — changing the fit would break the "same box,
 // fully covered" look for every other card.
+//
+// Title text: plain Text (no shimmer) — module card titles were switched
+// off the shimmer effect per request; every other _ShimmerText usage on
+// this screen (header, fleet counters, footer) is unchanged.
 
 class _TapColorCard extends StatefulWidget {
   final String title;
@@ -1146,10 +1150,8 @@ class _TapColorCardState extends State<_TapColorCard> {
                       ],
                     ),
                   ),
-                  child: _ShimmerText(
-                    text: widget.title,
-                    controller: widget.controller,
-                    highlightColor: widget.color,
+                  child: Text(
+                    widget.title,
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                       color: Colors.white,

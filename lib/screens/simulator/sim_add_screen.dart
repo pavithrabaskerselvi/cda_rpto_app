@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import '../../widgets/attach_document_button.dart';
 
 class SimAddScreen extends StatefulWidget {
   const SimAddScreen({super.key});
@@ -19,6 +20,9 @@ class _SimAddScreenState extends State<SimAddScreen> {
 
   String? _selectedCompanyId;
   String? _selectedCompanyName;
+
+  // --- Documents attached locally until the simulator is saved ---
+  List<AttachedDocument> _documents = [];
 
   // ---- Theme-aware colors instead of hardcoded kNavy/kSurface constants ----
   bool _isDark(BuildContext c) => Theme.of(c).brightness == Brightness.dark;
@@ -57,10 +61,23 @@ class _SimAddScreenState extends State<SimAddScreen> {
   );
 
   Future<void> _saveSimulator() async {
+    // Run form validation (fields themselves have no "required" validators
+    // anymore, but this keeps any future validators working).
     if (!_formKey.currentState!.validate()) return;
-    if (_selectedCompanyId == null) {
+
+    final hasName = _nameController.text.trim().isNotEmpty;
+    final hasModel = _modelController.text.trim().isNotEmpty;
+    final hasSerial = _serialController.text.trim().isNotEmpty;
+    final hasCompany = _selectedCompanyId != null;
+    final hasDocuments = _documents.isNotEmpty;
+
+    // Nothing at all filled in and no document attached -> block save.
+    if (!hasName && !hasModel && !hasSerial && !hasCompany && !hasDocuments) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: const Text('Please select a company/branch'), backgroundColor: _danger(context)),
+        SnackBar(
+          content: const Text('Please fill at least one field or attach a document'),
+          backgroundColor: _danger(context),
+        ),
       );
       return;
     }
@@ -75,6 +92,7 @@ class _SimAddScreenState extends State<SimAddScreen> {
         'companyName': _selectedCompanyName,
         'status': _status,
         'createdAt': FieldValue.serverTimestamp(),
+        'documents': _documents.map((d) => d.toMap()).toList(),
       });
 
       if (mounted) {
@@ -121,7 +139,7 @@ class _SimAddScreenState extends State<SimAddScreen> {
               controller: _nameController,
               style: TextStyle(color: _textPrimary(context)),
               decoration: _fieldDecoration(context, 'e.g. VR Drone Sim Unit 1'),
-              validator: (val) => val == null || val.trim().isEmpty ? 'Name required' : null,
+              // Optional now — no validator.
             ),
             const SizedBox(height: 16),
 
@@ -130,7 +148,7 @@ class _SimAddScreenState extends State<SimAddScreen> {
               controller: _modelController,
               style: TextStyle(color: _textPrimary(context)),
               decoration: _fieldDecoration(context, 'e.g. DJI FlightSim Pro'),
-              validator: (val) => val == null || val.trim().isEmpty ? 'Model required' : null,
+              // Optional now — no validator.
             ),
             const SizedBox(height: 16),
 
@@ -139,11 +157,11 @@ class _SimAddScreenState extends State<SimAddScreen> {
               controller: _serialController,
               style: TextStyle(color: _textPrimary(context)),
               decoration: _fieldDecoration(context, 'e.g. SN-2026-00123'),
-              validator: (val) => val == null || val.trim().isEmpty ? 'Serial number required' : null,
+              // Optional now — no validator.
             ),
             const SizedBox(height: 16),
 
-            _buildLabel(context, 'Company / Branch'),
+            _buildLabel(context, 'Company'),
             StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance.collection('companies').snapshots(),
               builder: (context, snapshot) {
@@ -162,7 +180,7 @@ class _SimAddScreenState extends State<SimAddScreen> {
                       isExpanded: true,
                       dropdownColor: _surface(context),
                       value: _selectedCompanyId,
-                      hint: Text('Select company/branch', style: TextStyle(color: _textMuted(context))),
+                      hint: Text('Select company', style: TextStyle(color: _textMuted(context))),
                       style: TextStyle(color: _textPrimary(context)),
                       items: companies.map((doc) {
                         final data = doc.data() as Map<String, dynamic>;
@@ -177,6 +195,21 @@ class _SimAddScreenState extends State<SimAddScreen> {
                   ),
                 );
               },
+            ),
+            const SizedBox(height: 16),
+
+            _buildLabel(context, 'Documents'),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: _surface(context),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: _textMuted(context).withOpacity(0.15)),
+              ),
+              child: AttachDocumentButton(
+                initialDocuments: _documents,
+                onDocumentsChanged: (docs) => setState(() => _documents = docs),
+              ),
             ),
             const SizedBox(height: 16),
 

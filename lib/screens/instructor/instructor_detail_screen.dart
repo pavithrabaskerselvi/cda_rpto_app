@@ -7,6 +7,7 @@ import '../../config/constants.dart';
 import '../../config/theme_colors.dart';
 import '../../providers/theme_provider.dart';
 import '../../widgets/attach_document_button.dart';
+import 'instructor_edit_screen.dart';
 
 class InstructorDetailScreen extends StatefulWidget {
   final InstructorModel instructor;
@@ -74,6 +75,23 @@ class _InstructorDetailScreenState extends State<InstructorDetailScreen> {
     }
   }
 
+  Future<void> _editInstructor() async {
+    final updated = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => InstructorEditScreen(instructor: widget.instructor),
+      ),
+    );
+    // The edit screen already writes changes to Firestore. Since this
+    // screen holds a static (non-streamed) copy of the instructor, the
+    // simplest way to reflect the update is to pop back to the list
+    // (which is expected to be backed by a live stream/query), same
+    // pattern already used by _toggleStatus above.
+    if (updated == true && mounted) {
+      Navigator.pop(context);
+    }
+  }
+
   Future<void> _toggleStatus() async {
     final newStatus = widget.instructor.status == 'Active' ? 'Inactive' : 'Active';
     try {
@@ -128,7 +146,7 @@ class _InstructorDetailScreenState extends State<InstructorDetailScreen> {
               size: 18, color: isDark ? c.textSecondary : c.accent),
           Switch(
             value: isDark,
-            activeColor: c.accent,
+            activeThumbColor: c.accent,
             onChanged: (val) => context.read<ThemeProvider>().toggleTheme(val),
           ),
           Icon(Icons.nightlight_round,
@@ -164,6 +182,11 @@ class _InstructorDetailScreenState extends State<InstructorDetailScreen> {
         actions: [
           _buildThemeToggle(isDark, c),
           IconButton(
+            icon: Icon(Icons.edit_outlined, color: c.accent),
+            tooltip: 'Edit',
+            onPressed: _isDeleting ? null : _editInstructor,
+          ),
+          IconButton(
             icon: _isDeleting
                 ? SizedBox(
               width: 18,
@@ -171,6 +194,7 @@ class _InstructorDetailScreenState extends State<InstructorDetailScreen> {
               child: CircularProgressIndicator(color: c.danger, strokeWidth: 2),
             )
                 : Icon(Icons.delete_outline, color: c.danger),
+            tooltip: 'Delete',
             onPressed: _isDeleting ? null : () => _confirmDelete(c),
           ),
         ],
@@ -256,7 +280,11 @@ class _InstructorDetailScreenState extends State<InstructorDetailScreen> {
           const SizedBox(height: 10),
           _buildInfoCard(c, [
             _buildInfoRow(Icons.flight_outlined, 'Specialization', instructor.specialization, c),
-            _buildInfoRow(Icons.work_outline, 'Experience', '${instructor.experienceYears} years', c),
+            _buildInfoRow(Icons.work_outline, 'Experience',
+                instructor.experienceYears == 0 && instructor.experienceMonths == 0
+                    ? '-'
+                    : '${instructor.experienceYears} yrs${instructor.experienceMonths > 0 ? ' ${instructor.experienceMonths} mo' : ''}',
+                c),
             _buildInfoRow(Icons.business_outlined, 'Company', instructor.companyName, c),
           ]),
           const SizedBox(height: 20),
