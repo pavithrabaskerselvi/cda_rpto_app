@@ -12,17 +12,27 @@ class _AddBatchScreenState extends State<AddBatchScreen> {
   final _formKey = GlobalKey<FormState>();
 
   final TextEditingController _batchNameController = TextEditingController();
-  final TextEditingController _studentCountController =
-  TextEditingController();
+  final TextEditingController _studentCountController = TextEditingController();
+  final TextEditingController _locationController = TextEditingController();
+  final TextEditingController _scheduleDaysController = TextEditingController();
+  final TextEditingController _sessionDurationController = TextEditingController();
+  final TextEditingController _maxCapacityController = TextEditingController();
+  final TextEditingController _targetFlyingHoursController = TextEditingController();
+  final TextEditingController _targetSimulatorHoursController = TextEditingController();
+  final TextEditingController _feeAmountController = TextEditingController();
 
   String? _selectedInstructor;
   String _selectedStatus = 'Upcoming';
+  String _selectedCategory = 'RPTO';
   DateTime? _startDate;
   DateTime? _endDate;
+  TimeOfDay? _startTime;
+  TimeOfDay? _endTime;
 
   bool _isSaving = false;
 
   final List<String> _statusOptions = ['Upcoming', 'Ongoing', 'Completed'];
+  final List<String> _categoryOptions = ['RPTO', 'FPV', 'Aerial'];
 
   // ---- Theme-aware colors: flip between dark/light based on current
   // Theme brightness instead of hardcoded dark-only constants. ----
@@ -45,6 +55,13 @@ class _AddBatchScreenState extends State<AddBatchScreen> {
   void dispose() {
     _batchNameController.dispose();
     _studentCountController.dispose();
+    _locationController.dispose();
+    _scheduleDaysController.dispose();
+    _sessionDurationController.dispose();
+    _maxCapacityController.dispose();
+    _targetFlyingHoursController.dispose();
+    _targetSimulatorHoursController.dispose();
+    _feeAmountController.dispose();
     super.dispose();
   }
 
@@ -97,6 +114,44 @@ class _AddBatchScreenState extends State<AddBatchScreen> {
     }
   }
 
+  Future<void> _pickTime({required bool isStart}) async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: (isStart ? _startTime : _endTime) ?? TimeOfDay.now(),
+      builder: (context, child) {
+        final dark = _isDark(context);
+        return Theme(
+          data: dark
+              ? ThemeData.dark().copyWith(
+            colorScheme: ColorScheme.dark(
+              primary: _kTeal(context),
+              surface: _kSurface(context),
+              onSurface: Colors.white,
+            ),
+          )
+              : ThemeData.light().copyWith(
+            colorScheme: ColorScheme.light(
+              primary: _kTeal(context),
+              surface: _kSurface(context),
+              onSurface: _kTextPrimary(context),
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (picked != null) {
+      setState(() {
+        if (isStart) {
+          _startTime = picked;
+        } else {
+          _endTime = picked;
+        }
+      });
+    }
+  }
+
   String _formatDate(DateTime? date) {
     if (date == null) return 'Select date';
     const months = [
@@ -104,6 +159,19 @@ class _AddBatchScreenState extends State<AddBatchScreen> {
       'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
     ];
     return '${date.day} ${months[date.month - 1]} ${date.year}';
+  }
+
+  String _formatTime(TimeOfDay? time) {
+    if (time == null) return 'Select time';
+    final hour = time.hourOfPeriod == 0 ? 12 : time.hourOfPeriod;
+    final minute = time.minute.toString().padLeft(2, '0');
+    final period = time.period == DayPeriod.am ? 'AM' : 'PM';
+    return '$hour:$minute $period';
+  }
+
+  String _timeToStorageString(TimeOfDay? time) {
+    if (time == null) return '';
+    return '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
   }
 
   Future<void> _saveBatch() async {
@@ -137,8 +205,18 @@ class _AddBatchScreenState extends State<AddBatchScreen> {
         'instructor': _selectedInstructor,
         'studentCount': int.tryParse(_studentCountController.text.trim()) ?? 0,
         'status': _selectedStatus,
+        'category': _selectedCategory,
+        'location': _locationController.text.trim(),
+        'scheduleDays': _scheduleDaysController.text.trim(),
         'startDate': Timestamp.fromDate(_startDate!),
         'endDate': Timestamp.fromDate(_endDate!),
+        'startTime': _timeToStorageString(_startTime),
+        'endTime': _timeToStorageString(_endTime),
+        'sessionDuration': _sessionDurationController.text.trim(),
+        'maxCapacity': int.tryParse(_maxCapacityController.text.trim()) ?? 0,
+        'targetFlyingHours': num.tryParse(_targetFlyingHoursController.text.trim()) ?? 0,
+        'targetSimulatorHours': num.tryParse(_targetSimulatorHoursController.text.trim()) ?? 0,
+        'feeAmount': num.tryParse(_feeAmountController.text.trim()) ?? 0,
         'createdAt': FieldValue.serverTimestamp(),
       });
 
@@ -229,6 +307,23 @@ class _AddBatchScreenState extends State<AddBatchScreen> {
             ),
             const SizedBox(height: 16),
 
+            DropdownButtonFormField<String>(
+              initialValue: _selectedCategory,
+              dropdownColor: _kSurface(context),
+              style: TextStyle(color: _kTextPrimary(context)),
+              decoration: _inputDecoration(context, 'Category', icon: Icons.category_outlined),
+              items: _categoryOptions
+                  .map((category) => DropdownMenuItem(
+                value: category,
+                child: Text(category),
+              ))
+                  .toList(),
+              onChanged: (value) {
+                setState(() => _selectedCategory = value ?? 'RPTO');
+              },
+            ),
+            const SizedBox(height: 16),
+
             // Instructor dropdown - pulled from Firestore 'instructors' collection
             StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance
@@ -263,6 +358,21 @@ class _AddBatchScreenState extends State<AddBatchScreen> {
                   value == null ? 'Please select an instructor' : null,
                 );
               },
+            ),
+            const SizedBox(height: 16),
+
+            TextFormField(
+              controller: _locationController,
+              style: TextStyle(color: _kTextPrimary(context)),
+              decoration: _inputDecoration(context, 'Location', icon: Icons.location_on_outlined),
+            ),
+            const SizedBox(height: 16),
+
+            TextFormField(
+              controller: _scheduleDaysController,
+              style: TextStyle(color: _kTextPrimary(context)),
+              decoration: _inputDecoration(context, 'Schedule Days', icon: Icons.event_repeat_outlined)
+                  .copyWith(hintText: 'e.g. Mon, Wed, Fri'),
             ),
             const SizedBox(height: 16),
 
@@ -329,6 +439,83 @@ class _AddBatchScreenState extends State<AddBatchScreen> {
                   ),
                 ),
               ),
+            ),
+            const SizedBox(height: 16),
+
+            Row(
+              children: [
+                Expanded(
+                  child: InkWell(
+                    onTap: () => _pickTime(isStart: true),
+                    borderRadius: BorderRadius.circular(12),
+                    child: InputDecorator(
+                      decoration: _inputDecoration(context, 'Start Time', icon: Icons.access_time_outlined),
+                      child: Text(
+                        _formatTime(_startTime),
+                        style: TextStyle(
+                          color: _startTime == null ? _kTextSecondary(context) : _kTextPrimary(context),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: InkWell(
+                    onTap: () => _pickTime(isStart: false),
+                    borderRadius: BorderRadius.circular(12),
+                    child: InputDecorator(
+                      decoration: _inputDecoration(context, 'End Time', icon: Icons.access_time_outlined),
+                      child: Text(
+                        _formatTime(_endTime),
+                        style: TextStyle(
+                          color: _endTime == null ? _kTextSecondary(context) : _kTextPrimary(context),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            TextFormField(
+              controller: _sessionDurationController,
+              style: TextStyle(color: _kTextPrimary(context)),
+              decoration: _inputDecoration(context, 'Session Duration', icon: Icons.timelapse_outlined)
+                  .copyWith(hintText: 'e.g. 2 hours'),
+            ),
+            const SizedBox(height: 16),
+
+            TextFormField(
+              controller: _maxCapacityController,
+              keyboardType: TextInputType.number,
+              style: TextStyle(color: _kTextPrimary(context)),
+              decoration: _inputDecoration(context, 'Max Capacity', icon: Icons.groups_outlined),
+            ),
+            const SizedBox(height: 16),
+
+            TextFormField(
+              controller: _targetFlyingHoursController,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              style: TextStyle(color: _kTextPrimary(context)),
+              decoration: _inputDecoration(context, 'Target Flying Hours', icon: Icons.flight_takeoff_outlined),
+            ),
+            const SizedBox(height: 16),
+
+            TextFormField(
+              controller: _targetSimulatorHoursController,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              style: TextStyle(color: _kTextPrimary(context)),
+              decoration: _inputDecoration(context, 'Target Simulator Hours', icon: Icons.sports_esports_outlined),
+            ),
+            const SizedBox(height: 16),
+
+            TextFormField(
+              controller: _feeAmountController,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              style: TextStyle(color: _kTextPrimary(context)),
+              decoration: _inputDecoration(context, 'Fee Amount (INR)', icon: Icons.currency_rupee_outlined),
             ),
             const SizedBox(height: 32),
 

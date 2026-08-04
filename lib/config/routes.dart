@@ -1,10 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
 import '../screens/auth/login_screen.dart';
 import '../screens/auth/register_screen.dart';
 import '../screens/dashboard/dashboard_screen.dart';
 import '../screens/batch/batch_list_screen.dart';
 import '../screens/batch/batch_add_screen.dart';
 import '../screens/batch/batch_detail_screen.dart';
+import '../screens/batch/bulk_batch_setup_screen.dart';
+import '../screens/import/bulk_import_screen.dart';
+import '../controllers/bulk_import_controller.dart';
 
 class AppRoutes {
   static const String login = '/login';
@@ -34,6 +39,16 @@ class AppRoutes {
   static const String batchList = '/batch-list';
   static const String batchAdd = '/batch-add';
   static const String batchDetail = '/batch-detail';
+  static const String bulkBatchSetup = '/bulk-batch-setup';
+
+  // Bulk Import
+  // NOTE: intentionally NOT in the `routes` map below — it needs an
+  // optional argument (batchName) to support "import for this batch
+  // only", and the plain `routes` map has no access to
+  // RouteSettings.arguments. Always navigate to it with pushNamed,
+  // passing a String batchName if you want it scoped, or null/omitted
+  // to import across all batches.
+  static const String bulkImport = '/bulk-import';
 
   static Map<String, WidgetBuilder> get routes {
     return {
@@ -42,13 +57,15 @@ class AppRoutes {
       dashboard: (context) => const DashboardScreen(),
       batchList: (context) => const BatchListScreen(),
       batchAdd: (context) => const AddBatchScreen(),
+      bulkBatchSetup: (context) => const BulkBatchSetupScreen(),
       // Remaining routes added as we build each module
     };
   }
 
   /// Handles routes that need arguments passed in (e.g. batch-detail needs
-  /// a batchId). These can't go in the plain `routes` map above because
-  /// WidgetBuilder there has no access to RouteSettings.arguments.
+  /// a batchId, bulk-import needs an optional batchName). These can't go
+  /// in the plain `routes` map above because WidgetBuilder there has no
+  /// access to RouteSettings.arguments.
   static Route<dynamic>? onGenerateRoute(RouteSettings settings) {
     switch (settings.name) {
       case batchDetail:
@@ -63,6 +80,20 @@ class AppRoutes {
         return MaterialPageRoute(
           builder: (_) => BatchDetailScreen(batchId: batchId),
         );
+
+      case bulkImport:
+      // Optional: pass a batch name (e.g. "BATCH 1") to scope the
+      // import to just that batch's folder. Pass nothing / null to
+      // import across every batch folder under the picked root.
+        final batchName = settings.arguments as String?;
+        return MaterialPageRoute(
+          builder: (_) => Provider<BulkImportController>(
+            create: (_) => BulkImportController(batchNameFilter: batchName),
+            dispose: (_, controller) => controller.dispose(),
+            child: BulkImportScreen(batchName: batchName),
+          ),
+        );
+
       default:
         return null; // fall back to `routes` map above
     }

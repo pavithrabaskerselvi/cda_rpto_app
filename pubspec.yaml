@@ -17,7 +17,7 @@ dependencies:
     firebase_auth: ^6.5.4
     cloud_firestore: ^6.6.0
     firebase_storage: ^13.4.3
-
+    web: ^1.1.0
     # File / Image picking (documents, camera etc.)
     file_picker: ^8.1.4
     image_picker: ^1.1.2

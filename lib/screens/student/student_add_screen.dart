@@ -87,11 +87,6 @@ class _StudentAddScreenState extends State<StudentAddScreen> {
 
   Future<void> _saveStudent() async {
     if (!_formKey.currentState!.validate()) return;
-    if (_companyId == null) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Select a branch')));
-      return;
-    }
     setState(() => _saving = true);
 
     if (_batchId == null) {
@@ -111,7 +106,7 @@ class _StudentAddScreenState extends State<StudentAddScreen> {
         place: _placeCtrl.text.trim(),
         batchId: _batchId!,
         batchName: _batchName ?? '',
-        companyId: _companyId!,
+        companyId: _companyId ?? '',
         companyName: _companyName ?? '',
         status: _status,
         enrollmentDate: _enrollmentDate,
@@ -249,40 +244,6 @@ class _StudentAddScreenState extends State<StudentAddScreen> {
                       });
                     },
                     validator: (v) => v == null ? 'Select a batch' : null,
-                  );
-                },
-              ),
-              const SizedBox(height: 14),
-              StreamBuilder<QuerySnapshot>(
-                stream:
-                FirebaseFirestore.instance.collection('companies').snapshots(),
-                builder: (context, snapshot) {
-                  if (!snapshot.hasData) {
-                    return LinearProgressIndicator(color: teal);
-                  }
-                  final companies = snapshot.data!.docs;
-                  final validIds = companies.map((c) => c.id).toSet();
-                  final currentValue =
-                  validIds.contains(_companyId) ? _companyId : null;
-                  return DropdownButtonFormField<String>(
-                    initialValue: currentValue,
-                    dropdownColor: _surface(context),
-                    style: TextStyle(color: _textPrimary(context)),
-                    decoration: _decoration(context, 'Branch *'),
-                    items: companies.map((c) {
-                      final data = c.data() as Map<String, dynamic>;
-                      final name = data['name'] ?? c.id;
-                      return DropdownMenuItem(value: c.id, child: Text(name));
-                    }).toList(),
-                    onChanged: (v) {
-                      final match = companies.firstWhere((c) => c.id == v);
-                      final data = match.data() as Map<String, dynamic>;
-                      setState(() {
-                        _companyId = v;
-                        _companyName = data['name'] ?? '';
-                      });
-                    },
-                    validator: (v) => v == null ? 'Select a branch' : null,
                   );
                 },
               ),

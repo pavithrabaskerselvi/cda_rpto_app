@@ -114,6 +114,26 @@ class _BatchListScreenState extends State<BatchListScreen> {
               ),
               Padding(
                 padding: const EdgeInsets.only(right: 8),
+                child: IconButton(
+                  tooltip: 'Bulk Import Documents',
+                  icon: Icon(Icons.upload_file, color: _kTextPrimary(context)),
+                  onPressed: () {
+                    Navigator.of(context).pushNamed(AppRoutes.bulkImport);
+                  },
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: IconButton(
+                  tooltip: 'Bulk Batch Setup (batch + student list at once)',
+                  icon: Icon(Icons.playlist_add, color: _kTextPrimary(context)),
+                  onPressed: () {
+                    Navigator.of(context).pushNamed(AppRoutes.bulkBatchSetup);
+                  },
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
                 child: Container(
                   decoration: BoxDecoration(
                     gradient: LinearGradient(

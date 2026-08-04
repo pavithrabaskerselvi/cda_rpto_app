@@ -9,7 +9,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
-import 'package:printing/printing.dart';
 import 'package:excel/excel.dart' hide Border;
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
@@ -18,6 +17,23 @@ import '../../config/theme_colors.dart';
 const Color _pAccent = Color(0xFF2DD4BF);
 
 const List<String> _fixedDocTypes = ['Aadhar / ID Proof', 'Medical Certificate', 'Photo'];
+
+/// Outcome of one file in a bulk upload run — shown in the results
+/// summary sheet after [StudentDocumentsTab._bulkUploadDocuments]
+/// finishes.
+class _BulkUploadResult {
+  final String fileName;
+  final String title;
+  final bool success;
+  final String? errorMessage;
+
+  _BulkUploadResult({
+    required this.fileName,
+    required this.title,
+    required this.success,
+    this.errorMessage,
+  });
+}
 
 class StudentDocumentsTab extends StatefulWidget {
   final String studentId;
@@ -32,6 +48,11 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
   bool _uploading = false;
   bool _exporting = false;
 
+  bool _bulkUploading = false;
+  int _bulkTotal = 0;
+  int _bulkProcessed = 0;
+  String? _bulkCurrentFileName;
+
   static const String _cloudName = 'vmi67fhz';
   static const String _uploadPreset = 'rpto_unsigned';
 
@@ -39,6 +60,54 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
       .collection('students')
       .doc(widget.studentId)
       .collection('documents');
+
+  // ---------------- Core upload (Cloudinary + Firestore) ----------------
+
+  /// Uploads [bytes] to Cloudinary and writes/updates the Firestore doc
+  /// record under [title]. Shared by both the single-file "+" upload and
+  /// the bulk multi-file upload below. Throws on failure — callers
+  /// decide how to surface that (SnackBar for single, per-item result
+  /// for bulk).
+  Future<void> _performUpload({
+    required String title,
+    required String fileName,
+    required Uint8List bytes,
+    String? existingDocId,
+  }) async {
+    final uri = Uri.parse('https://api.cloudinary.com/v1_1/$_cloudName/auto/upload');
+    final request = http.MultipartRequest('POST', uri)
+      ..fields['upload_preset'] = _uploadPreset
+      ..files.add(http.MultipartFile.fromBytes('file', bytes, filename: fileName));
+
+    final streamedResponse = await request.send();
+    final response = await http.Response.fromStream(streamedResponse);
+
+    if (response.statusCode != 200) {
+      throw Exception('Upload failed: ${response.statusCode}');
+    }
+
+    final url = RegExp(r'"secure_url":"([^"]+)"')
+        .firstMatch(response.body)
+        ?.group(1)
+        ?.replaceAll(r'\/', '/');
+
+    if (url == null) {
+      throw Exception('Upload succeeded but no URL was returned');
+    }
+
+    final data = {
+      'title': title,
+      'fileName': fileName,
+      'url': url,
+      'uploadedAt': Timestamp.now(),
+    };
+
+    if (existingDocId != null) {
+      await _docsRef.doc(existingDocId).update(data);
+    } else {
+      await _docsRef.add(data);
+    }
+  }
 
   Future<void> _uploadDocument({required String title, String? existingDocId}) async {
     final result = await FilePicker.platform.pickFiles(
@@ -61,39 +130,12 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
 
     setState(() => _uploading = true);
     try {
-      final uri = Uri.parse('https://api.cloudinary.com/v1_1/$_cloudName/auto/upload');
-      final request = http.MultipartRequest('POST', uri)
-        ..fields['upload_preset'] = _uploadPreset
-        ..files.add(http.MultipartFile.fromBytes('file', bytes, filename: picked.name));
-
-      final streamedResponse = await request.send();
-      final response = await http.Response.fromStream(streamedResponse);
-
-      if (response.statusCode == 200) {
-        final url = RegExp(r'"secure_url":"([^"]+)"')
-            .firstMatch(response.body)
-            ?.group(1)
-            ?.replaceAll(r'\/', '/');
-
-        if (url == null) {
-          throw Exception('Upload succeeded but no URL was returned');
-        }
-
-        final data = {
-          'title': title,
-          'fileName': picked.name,
-          'url': url,
-          'uploadedAt': Timestamp.now(),
-        };
-
-        if (existingDocId != null) {
-          await _docsRef.doc(existingDocId).update(data);
-        } else {
-          await _docsRef.add(data);
-        }
-      } else {
-        throw Exception('Upload failed: ${response.statusCode}');
-      }
+      await _performUpload(
+        title: title,
+        fileName: picked.name,
+        bytes: bytes,
+        existingDocId: existingDocId,
+      );
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -103,6 +145,174 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
     } finally {
       if (mounted) setState(() => _uploading = false);
     }
+  }
+
+  // ---------------- Bulk upload (multiple files at once) ----------------
+
+  /// Every file picked in bulk is added as its own document, titled
+  /// after the file's own name (extension stripped) — no attempt to
+  /// match it to the fixed Aadhar/Medical/Photo slots. Those three
+  /// still work individually via the "+" button on each row; bulk is
+  /// purely "add everything I selected" for a student, same as
+  /// Additional Documents.
+  String _titleFromFileName(String fileName) {
+    final dot = fileName.lastIndexOf('.');
+    final nameOnly = dot == -1 ? fileName : fileName.substring(0, dot);
+    return nameOnly.trim().isEmpty ? fileName : nameOnly.trim();
+  }
+
+  Future<void> _bulkUploadDocuments() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png', 'doc', 'docx'],
+      withData: true,
+      allowMultiple: true,
+    );
+    if (result == null || result.files.isEmpty) return;
+
+    final pickedFiles = result.files.where((f) => f.bytes != null).toList();
+    if (pickedFiles.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not read the selected files'), backgroundColor: Colors.redAccent),
+        );
+      }
+      return;
+    }
+
+    setState(() {
+      _bulkUploading = true;
+      _bulkTotal = pickedFiles.length;
+      _bulkProcessed = 0;
+      _bulkCurrentFileName = null;
+    });
+
+    final results = <_BulkUploadResult>[];
+
+    for (final file in pickedFiles) {
+      final title = _titleFromFileName(file.name);
+      setState(() => _bulkCurrentFileName = file.name);
+
+      try {
+        // Always added as a new document — bulk import never overwrites
+        // an existing record, even if the title happens to match one.
+        await _performUpload(
+          title: title,
+          fileName: file.name,
+          bytes: file.bytes!,
+          existingDocId: null,
+        );
+        results.add(_BulkUploadResult(fileName: file.name, title: title, success: true));
+      } catch (e) {
+        results.add(
+          _BulkUploadResult(fileName: file.name, title: title, success: false, errorMessage: '$e'),
+        );
+      }
+
+      setState(() => _bulkProcessed++);
+    }
+
+    if (mounted) {
+      setState(() {
+        _bulkUploading = false;
+        _bulkCurrentFileName = null;
+      });
+      _showBulkResultsSheet(results);
+    }
+  }
+
+  void _showBulkResultsSheet(List<_BulkUploadResult> results) {
+    final succeeded = results.where((r) => r.success).length;
+    final failed = results.length - succeeded;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: ThemeColors.surface(context),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetContext) {
+        final maxSheetHeight = MediaQuery.of(sheetContext).size.height * 0.85;
+        return SafeArea(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxHeight: maxSheetHeight),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      margin: const EdgeInsets.only(bottom: 16),
+                      decoration: BoxDecoration(
+                        color: ThemeColors.textMuted(sheetContext),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  Text(
+                    'Bulk Import Complete',
+                    style: GoogleFonts.plusJakartaSans(
+                      color: ThemeColors.textPrimary(sheetContext),
+                      fontWeight: FontWeight.w700,
+                      fontSize: 16,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '$succeeded succeeded'
+                        '${failed > 0 ? ' • $failed failed' : ''}',
+                    style: GoogleFonts.plusJakartaSans(
+                      color: failed > 0 ? Colors.redAccent : ThemeColors.textMuted(sheetContext),
+                      fontSize: 13,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Flexible(
+                    child: ListView.separated(
+                      shrinkWrap: true,
+                      itemCount: results.length,
+                      separatorBuilder: (_, __) => const Divider(height: 1),
+                      itemBuilder: (context, index) {
+                        final r = results[index];
+                        return ListTile(
+                          dense: true,
+                          contentPadding: EdgeInsets.zero,
+                          leading: Icon(
+                            r.success ? Icons.check_circle : Icons.error_outline,
+                            color: r.success ? _pAccent : Colors.redAccent,
+                            size: 20,
+                          ),
+                          title: Text(
+                            r.fileName,
+                            style: GoogleFonts.plusJakartaSans(
+                              color: ThemeColors.textPrimary(context),
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13,
+                            ),
+                          ),
+                          subtitle: Text(
+                            r.success ? 'Saved as "${r.title}"' : (r.errorMessage ?? 'Unknown error'),
+                            style: GoogleFonts.plusJakartaSans(
+                              color: ThemeColors.textMuted(context),
+                              fontSize: 12,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
   }
 
   Future<void> _openDocument(String url) async {
@@ -178,7 +388,7 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                   style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey700),
                 ),
                 pw.SizedBox(height: 16),
-                pw.Table.fromTextArray(
+                pw.TableHelper.fromTextArray(
                   headers: const ['Document', 'Status', 'Uploaded On'],
                   data: rows,
                   headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold),
@@ -211,25 +421,19 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
     setState(() => _exporting = true);
     try {
       final rows = _buildExportRows(docs);
-      final workbook = Excel.createExcel();
-      final sheet = workbook['Documents'];
-      workbook.setDefaultSheet('Documents');
+      final excel = Excel.createExcel();
+      final sheet = excel['Documents'];
+      excel.setDefaultSheet('Documents');
 
-      sheet.appendRow([
-        TextCellValue('Document'),
-        TextCellValue('Status'),
-        TextCellValue('Uploaded On'),
-      ]);
+      sheet.appendRow(
+        const ['Document', 'Status', 'Uploaded On'].map(TextCellValue.new).toList(),
+      );
       for (final row in rows) {
-        sheet.appendRow([
-          TextCellValue(row[0]),
-          TextCellValue(row[1]),
-          TextCellValue(row[2]),
-        ]);
+        sheet.appendRow(row.map(TextCellValue.new).toList());
       }
 
-      final bytes = workbook.encode();
-      if (bytes == null) throw Exception('Could not encode Excel file');
+      final bytes = excel.encode();
+      if (bytes == null) throw Exception('Failed to encode Excel file');
 
       final fileName = '${_safeFileName(widget.studentName ?? widget.studentId)}_documents.xlsx';
       await _saveAndShare(Uint8List.fromList(bytes), fileName);
@@ -245,11 +449,10 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
     final rows = <List<String>>[];
 
     for (final type in _fixedDocTypes) {
-      final doc = byTitle[type];
-      rows.add(_rowFor(type, doc));
+      rows.add(_rowFor(type, byTitle[type]));
     }
-    for (final doc in docs.where((d) => !_fixedDocTypes.contains(d['title']))) {
-      rows.add(_rowFor(doc['title'] as String, doc));
+    for (final d in docs.where((d) => !_fixedDocTypes.contains(d['title']))) {
+      rows.add(_rowFor(d['title'] as String, d));
     }
     return rows;
   }
@@ -350,10 +553,21 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                             color: ThemeColors.textPrimary(context),
                             fontWeight: FontWeight.w700,
                             fontSize: 17)),
-                    IconButton(
-                      icon: const Icon(Icons.ios_share, color: _pAccent),
-                      tooltip: 'Export',
-                      onPressed: _exporting ? null : () => _showExportMenu(allDocs),
+                    Row(
+                      children: [
+                        TextButton.icon(
+                          onPressed: (_uploading || _bulkUploading) ? null : _bulkUploadDocuments,
+                          icon: const Icon(Icons.upload_file, color: _pAccent, size: 18),
+                          label: Text('Bulk Import',
+                              style: GoogleFonts.plusJakartaSans(
+                                  color: _pAccent, fontWeight: FontWeight.w600)),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.ios_share, color: _pAccent),
+                          tooltip: 'Export',
+                          onPressed: _exporting ? null : () => _showExportMenu(allDocs),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -404,6 +618,46 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
           Container(
             color: Colors.black54,
             child: const Center(child: CircularProgressIndicator(color: _pAccent)),
+          ),
+        if (_bulkUploading)
+          Container(
+            color: Colors.black54,
+            child: Center(
+              child: Container(
+                width: 260,
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: ThemeColors.surface(context),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const CircularProgressIndicator(color: _pAccent),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Uploading $_bulkProcessed of $_bulkTotal',
+                      style: GoogleFonts.plusJakartaSans(
+                        color: ThemeColors.textPrimary(context),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    if (_bulkCurrentFileName != null) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        _bulkCurrentFileName!,
+                        style: GoogleFonts.plusJakartaSans(
+                          color: ThemeColors.textMuted(context),
+                          fontSize: 12,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
           ),
       ],
     );
