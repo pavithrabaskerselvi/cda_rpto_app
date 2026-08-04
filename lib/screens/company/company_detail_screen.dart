@@ -7,6 +7,7 @@ import '../../config/constants.dart';
 import '../../config/theme_colors.dart';
 import '../../providers/theme_provider.dart';
 import '../../widgets/attach_document_button.dart';
+import 'company_edit_screen.dart';
 
 class CompanyDetailScreen extends StatefulWidget {
   final CompanyModel company;
@@ -76,6 +77,22 @@ class _CompanyDetailScreenState extends State<CompanyDetailScreen> {
       } finally {
         setState(() => _isDeleting = false);
       }
+    }
+  }
+
+  Future<void> _openEditScreen() async {
+    final updated = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => CompanyEditScreen(company: widget.company),
+      ),
+    );
+    // CompanyEditScreen pops with `true` after a successful save. This
+    // screen holds a snapshot (widget.company) that won't reflect the
+    // change on its own, so pop back to the list — its StreamBuilder
+    // will show the fresh data immediately.
+    if (updated == true && mounted) {
+      Navigator.pop(context);
     }
   }
 
@@ -166,6 +183,10 @@ class _CompanyDetailScreenState extends State<CompanyDetailScreen> {
         actions: [
           _buildThemeToggle(isDark, c),
           IconButton(
+            icon: Icon(Icons.edit_outlined, color: c.accent),
+            onPressed: _openEditScreen,
+          ),
+          IconButton(
             icon: _isDeleting
                 ? SizedBox(
               width: 18,
@@ -244,7 +265,9 @@ class _CompanyDetailScreenState extends State<CompanyDetailScreen> {
           _buildSectionLabel('Registration', c),
           const SizedBox(height: 10),
           _buildInfoCard(c, [
-            _buildInfoRow(Icons.badge_outlined, 'Registration Number', company.registrationNumber, c),
+            if (company.tradeName.isNotEmpty)
+              _buildInfoRow(Icons.storefront_outlined, 'Trade Name', company.tradeName, c),
+            _buildInfoRow(Icons.badge_outlined, 'Authorization Number', company.registrationNumber, c),
             _buildInfoRow(Icons.location_on_outlined, 'Address', company.address, c),
             _buildInfoRow(Icons.location_city_outlined, 'City, State', '${company.city}, ${company.state}', c),
             _buildInfoRow(Icons.pin_drop_outlined, 'Pincode', company.pincode, c),

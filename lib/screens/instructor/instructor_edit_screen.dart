@@ -2,42 +2,44 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../models/company_model.dart';
+import '../../models/instructor_model.dart';
 import '../../config/constants.dart';
 import '../../config/theme_colors.dart';
 import '../../providers/theme_provider.dart';
 import '../../widgets/attach_document_button.dart';
 
-// NOTE: This screen now uses PlatformFile (with .bytes) instead of
-// dart:io File, so document upload works correctly on Flutter Web
-// as well as Android/iOS/Desktop.
+// Edit screen for an existing instructor. Mirrors instructor_add_screen.dart
+// but pre-fills all fields from the instructor being edited and performs
+// a Firestore `update()` instead of `add()`.
+class InstructorEditScreen extends StatefulWidget {
+  final InstructorModel instructor;
 
-class InstructorAddScreen extends StatefulWidget {
-  const InstructorAddScreen({super.key});
+  const InstructorEditScreen({super.key, required this.instructor});
 
   @override
-  State<InstructorAddScreen> createState() => _InstructorAddScreenState();
+  State<InstructorEditScreen> createState() => _InstructorEditScreenState();
 }
 
-class _InstructorAddScreenState extends State<InstructorAddScreen> {
+class _InstructorEditScreenState extends State<InstructorEditScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController();
-  final _emailController = TextEditingController();
-  final _phoneController = TextEditingController();
-  final _licenseController = TextEditingController();
-  final _experienceController = TextEditingController();
-  final _experienceMonthsController = TextEditingController();
+  late final TextEditingController _nameController;
+  late final TextEditingController _emailController;
+  late final TextEditingController _phoneController;
+  late final TextEditingController _licenseController;
+  late final TextEditingController _experienceController;
+  late final TextEditingController _experienceMonthsController;
 
   String? _selectedSpecialization;
   String? _selectedCompanyId;
   String? _selectedCompanyName;
-  String _status = 'Active';
+  late String _status;
 
   bool _isLoadingCompanies = true;
   bool _isSaving = false;
   List<CompanyModel> _companies = [];
 
-  // --- Documents state (collected locally until instructor is saved) ---
-  List<AttachedDocument> _documents = [];
+  // --- Documents state ---
+  late List<AttachedDocument> _documents;
 
   final List<String> _specializations = [
     'All',
@@ -52,6 +54,21 @@ class _InstructorAddScreenState extends State<InstructorAddScreen> {
   @override
   void initState() {
     super.initState();
+    final i = widget.instructor;
+    _nameController = TextEditingController(text: i.name);
+    _emailController = TextEditingController(text: i.email);
+    _phoneController = TextEditingController(text: i.phone);
+    _licenseController = TextEditingController(text: i.licenseNumber);
+    _experienceController = TextEditingController(text: i.experienceYears.toString());
+    _experienceMonthsController = TextEditingController(text: i.experienceMonths.toString());
+    // If the instructor's saved specialization isn't in the current list
+    // (e.g. an older record), fall back to null so the dropdown doesn't crash.
+    _selectedSpecialization =
+    _specializations.contains(i.specialization) ? i.specialization : null;
+    _selectedCompanyId = i.companyId;
+    _selectedCompanyName = i.companyName;
+    _status = i.status;
+    _documents = List<AttachedDocument>.from(i.documents);
     _loadCompanies();
   }
 
@@ -87,7 +104,10 @@ class _InstructorAddScreenState extends State<InstructorAddScreen> {
 
     setState(() => _isSaving = true);
     try {
-      await FirebaseFirestore.instance.collection('instructors').add({
+      await FirebaseFirestore.instance
+          .collection('instructors')
+          .doc(widget.instructor.id)
+          .update({
         'name': _nameController.text.trim(),
         'email': _emailController.text.trim(),
         'phone': _phoneController.text.trim(),
@@ -98,16 +118,15 @@ class _InstructorAddScreenState extends State<InstructorAddScreen> {
         'companyId': _selectedCompanyId, // may be null if company was typed manually (not in list)
         'companyName': _selectedCompanyName?.trim(),
         'status': _status,
-        'profileImageUrl': null,
         'documents': _documents.map((d) => d.toMap()).toList(),
-        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
       });
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Instructor added successfully'), backgroundColor: kGreen),
+          const SnackBar(content: Text('Instructor updated successfully'), backgroundColor: kGreen),
         );
-        Navigator.pop(context);
+        Navigator.pop(context, true); // signal caller to refresh/pop further
       }
     } catch (e) {
       if (mounted) {
@@ -116,7 +135,7 @@ class _InstructorAddScreenState extends State<InstructorAddScreen> {
         );
       }
     } finally {
-      setState(() => _isSaving = false);
+      if (mounted) setState(() => _isSaving = false);
     }
   }
 
@@ -185,7 +204,7 @@ class _InstructorAddScreenState extends State<InstructorAddScreen> {
       backgroundColor: c.background,
       appBar: AppBar(
         backgroundColor: c.background,
-        title: Text('Add Instructor', style: TextStyle(color: c.textPrimary)),
+        title: Text('Edit Instructor', style: TextStyle(color: c.textPrimary)),
         iconTheme: IconThemeData(color: c.textPrimary),
         actions: [_buildThemeToggle(isDark, c)],
       ),
@@ -267,12 +286,12 @@ class _InstructorAddScreenState extends State<InstructorAddScreen> {
             const SizedBox(height: 16),
 
             // ---- Company: searchable Autocomplete (type to filter) ----
-            // Typing an existing company name (case/whitespace-insensitive)
-            // auto-links it to that company's id. Typing a name that isn't
-            // in the list is now ALSO accepted as-is (manual entry) — the
-            // admin does not have to pick from the dropdown to proceed.
+            // Typing an existing company name links it to that company's
+            // id. A name that isn't in the list is accepted as-is
+            // (manual entry) — no need to pick from the dropdown.
             _buildLabel('Company', c),
             Autocomplete<CompanyModel>(
+              initialValue: TextEditingValue(text: _selectedCompanyName ?? ''),
               optionsBuilder: (TextEditingValue textEditingValue) {
                 if (textEditingValue.text.isEmpty) return _companies;
                 return _companies.where((comp) => comp.name
@@ -281,15 +300,11 @@ class _InstructorAddScreenState extends State<InstructorAddScreen> {
               },
               displayStringForOption: (comp) => comp.name,
               fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
-                // NOTE: Do NOT force-sync controller.text to
-                // _selectedCompanyName here. Autocomplete already updates
-                // the field text automatically when a dropdown option is
-                // selected (see onSelected below). Force-syncing on every
-                // rebuild fought with manual typing — since
-                // _selectedCompanyName is trimmed but controller.text can
-                // have a trailing space (e.g. right after pressing
-                // spacebar), the mismatch caused the field to reset/clear
-                // mid-typing.
+                // NOTE: We do NOT force-sync controller.text to
+                // _selectedCompanyName on every rebuild — that fights
+                // manual typing (e.g. breaks on spacebar). Autocomplete
+                // already updates the field text automatically when a
+                // dropdown option is selected (see onSelected below).
                 return TextFormField(
                   controller: controller,
                   focusNode: focusNode,
@@ -298,11 +313,6 @@ class _InstructorAddScreenState extends State<InstructorAddScreen> {
                   validator: (val) =>
                   val == null || val.trim().isEmpty ? 'Please enter a company name' : null,
                   onChanged: (val) {
-                    // If the typed text exactly matches an existing
-                    // company name, link it to that company's id.
-                    // Otherwise, accept the typed text as-is as a
-                    // manual/new company name (companyId stays null) —
-                    // no need to force picking from the dropdown list.
                     final match = _companies.where(
                           (comp) =>
                       comp.name.trim().toLowerCase() ==
@@ -419,7 +429,7 @@ class _InstructorAddScreenState extends State<InstructorAddScreen> {
                   width: 20,
                   child: CircularProgressIndicator(color: c.background, strokeWidth: 2),
                 )
-                    : Text('Add Instructor',
+                    : Text('Save Changes',
                     style: TextStyle(color: c.background, fontWeight: FontWeight.w600)),
               ),
             ),

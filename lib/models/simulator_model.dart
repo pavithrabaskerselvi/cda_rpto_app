@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../widgets/attach_document_button.dart';
 
 class SimulatorModel {
   final String id;
@@ -10,6 +11,7 @@ class SimulatorModel {
   final String status; // "Available", "In Use", "Under Maintenance"
   final DateTime createdAt;
   final DateTime? updatedAt;
+  final List<AttachedDocument> documents;
 
   SimulatorModel({
     required this.id,
@@ -21,6 +23,7 @@ class SimulatorModel {
     required this.status,
     required this.createdAt,
     this.updatedAt,
+    this.documents = const [],
   });
 
   factory SimulatorModel.fromMap(Map<String, dynamic> map, String documentId) {
@@ -38,6 +41,9 @@ class SimulatorModel {
       updatedAt: map['updatedAt'] != null
           ? (map['updatedAt'] as Timestamp).toDate()
           : null,
+      documents: (map['documents'] as List<dynamic>? ?? [])
+          .map((d) => AttachedDocument.fromMap(d as Map<String, dynamic>))
+          .toList(),
     );
   }
 
@@ -56,6 +62,7 @@ class SimulatorModel {
       'status': status,
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': updatedAt != null ? Timestamp.fromDate(updatedAt!) : FieldValue.serverTimestamp(),
+      'documents': documents.map((d) => d.toMap()).toList(),
     };
   }
 
@@ -67,6 +74,7 @@ class SimulatorModel {
     String? companyName,
     String? status,
     DateTime? updatedAt,
+    List<AttachedDocument>? documents,
   }) {
     return SimulatorModel(
       id: id,
@@ -78,6 +86,7 @@ class SimulatorModel {
       status: status ?? this.status,
       createdAt: createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      documents: documents ?? this.documents,
     );
   }
 }

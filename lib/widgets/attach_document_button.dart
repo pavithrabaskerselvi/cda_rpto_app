@@ -164,7 +164,7 @@ class AttachDocumentButtonState extends State<AttachDocumentButton> {
   Future<void> _pickAndUpload({String? key}) async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
-      allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png', 'doc', 'docx'],
+      allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png', 'webp', 'doc', 'docx'],
       withData: true, // important for Flutter Web
     );
     if (result == null || result.files.isEmpty) return;
@@ -233,7 +233,7 @@ class AttachDocumentButtonState extends State<AttachDocumentButton> {
   Future<void> _replaceExtraDocument(AttachedDocument oldDoc) async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
-      allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png', 'doc', 'docx'],
+      allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png', 'webp', 'doc', 'docx'],
       withData: true,
     );
     if (result == null || result.files.isEmpty) return;

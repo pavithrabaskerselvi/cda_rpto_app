@@ -9,6 +9,7 @@ class InstructorModel {
   final String licenseNumber;
   final String specialization; // e.g. "Fixed Wing", "Multirotor", "VTOL"
   final int experienceYears;
+  final int experienceMonths; // 0-11, extra months beyond experienceYears
   final String companyId;
   final String companyName;
   final String status; // "Active" or "Inactive"
@@ -25,6 +26,7 @@ class InstructorModel {
     required this.licenseNumber,
     required this.specialization,
     required this.experienceYears,
+    this.experienceMonths = 0,
     required this.companyId,
     required this.companyName,
     required this.status,
@@ -43,6 +45,7 @@ class InstructorModel {
       licenseNumber: map['licenseNumber'] ?? '',
       specialization: map['specialization'] ?? '',
       experienceYears: map['experienceYears'] ?? 0,
+      experienceMonths: map['experienceMonths'] ?? 0,
       companyId: map['companyId'] ?? '',
       companyName: map['companyName'] ?? '',
       status: map['status'] ?? 'Active',
@@ -72,6 +75,7 @@ class InstructorModel {
       'licenseNumber': licenseNumber,
       'specialization': specialization,
       'experienceYears': experienceYears,
+      'experienceMonths': experienceMonths,
       'companyId': companyId,
       'companyName': companyName,
       'status': status,
@@ -89,6 +93,7 @@ class InstructorModel {
     String? licenseNumber,
     String? specialization,
     int? experienceYears,
+    int? experienceMonths,
     String? companyId,
     String? companyName,
     String? status,
@@ -104,6 +109,7 @@ class InstructorModel {
       licenseNumber: licenseNumber ?? this.licenseNumber,
       specialization: specialization ?? this.specialization,
       experienceYears: experienceYears ?? this.experienceYears,
+      experienceMonths: experienceMonths ?? this.experienceMonths,
       companyId: companyId ?? this.companyId,
       companyName: companyName ?? this.companyName,
       status: status ?? this.status,
