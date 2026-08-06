@@ -135,6 +135,8 @@ class StudentInfoTab extends StatelessWidget {
             ),
             child: Column(
               children: [
+                _infoRow(context, 'Roll No', student.rollNo),
+                Divider(color: ThemeColors.divider(context)),
                 _infoRow(context, 'Name', student.name),
                 Divider(color: ThemeColors.divider(context)),
                 _infoRow(context, 'Email', student.email),

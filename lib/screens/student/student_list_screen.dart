@@ -153,7 +153,7 @@ class _StudentListScreenState extends State<StudentListScreen> {
                           setState(() => _searchQuery = v.toLowerCase()),
                       decoration: InputDecoration(
                         hintText:
-                        'Search name / email / phone / state / place...',
+                        'Search roll no / name / email / phone / state / place...',
                         hintStyle: GoogleFonts.plusJakartaSans(
                             color: _pTextMuted(context)),
                         prefixIcon:
@@ -356,6 +356,7 @@ class _StudentListScreenState extends State<StudentListScreen> {
                 final matchesPlace =
                     _selectedPlace == 'All' || s.place == _selectedPlace;
                 final matchesSearch = _searchQuery.isEmpty ||
+                    s.rollNo.toLowerCase().contains(_searchQuery) ||
                     s.name.toLowerCase().contains(_searchQuery) ||
                     s.email.toLowerCase().contains(_searchQuery) ||
                     s.phone.toLowerCase().contains(_searchQuery) ||
@@ -365,7 +366,9 @@ class _StudentListScreenState extends State<StudentListScreen> {
                     matchesState &&
                     matchesPlace &&
                     matchesSearch;
-              }).toList();
+              }).toList()
+              // Roll No ascending (numeric-aware; blanks sort last)
+                ..sort(StudentModel.compareRollNo);
 
               if (students.isEmpty) {
                 return SliverFillRemaining(
@@ -431,7 +434,9 @@ class _StudentListScreenState extends State<StudentListScreen> {
                             ),
                           ),
                           title: Text(
-                            student.name,
+                            student.rollNo.isNotEmpty
+                                ? '${student.rollNo} • ${student.name}'
+                                : student.name,
                             style: GoogleFonts.plusJakartaSans(
                                 color: _pTextPrimary(context),
                                 fontWeight: FontWeight.w700,

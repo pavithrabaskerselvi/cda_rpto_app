@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 class StudentModel {
   final String id;
+  final String rollNo; // NEW
   final String name;
   final String email;
   final String phone;
@@ -18,6 +19,7 @@ class StudentModel {
 
   StudentModel({
     required this.id,
+    required this.rollNo, // NEW
     required this.name,
     required this.email,
     required this.phone,
@@ -36,6 +38,7 @@ class StudentModel {
   factory StudentModel.fromMap(Map<String, dynamic> map, String documentId) {
     return StudentModel(
       id: documentId,
+      rollNo: map['rollNo'] ?? '', // NEW
       name: map['name'] ?? '',
       email: map['email'] ?? '',
       phone: map['phone'] ?? '',
@@ -65,6 +68,7 @@ class StudentModel {
 
   Map<String, dynamic> toMap() {
     return {
+      'rollNo': rollNo, // NEW
       'name': name,
       'email': email,
       'phone': phone,
@@ -82,6 +86,7 @@ class StudentModel {
   }
 
   StudentModel copyWith({
+    String? rollNo, // NEW
     String? name,
     String? email,
     String? phone,
@@ -97,6 +102,7 @@ class StudentModel {
   }) {
     return StudentModel(
       id: id,
+      rollNo: rollNo ?? this.rollNo, // NEW
       name: name ?? this.name,
       email: email ?? this.email,
       phone: phone ?? this.phone,
@@ -111,5 +117,24 @@ class StudentModel {
       createdAt: createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
+  }
+
+  /// Compares two roll numbers for ascending sort order.
+  /// Numeric roll numbers (e.g. "1", "02", "13") are compared as numbers so
+  /// "2" sorts before "10". Non-numeric roll numbers (e.g. "A12") fall back
+  /// to a case-insensitive alphabetical comparison. Blank roll numbers are
+  /// always pushed to the end of the list.
+  static int compareRollNo(StudentModel a, StudentModel b) {
+    final aRoll = a.rollNo.trim();
+    final bRoll = b.rollNo.trim();
+    if (aRoll.isEmpty && bRoll.isEmpty) return 0;
+    if (aRoll.isEmpty) return 1;
+    if (bRoll.isEmpty) return -1;
+
+    final aNum = num.tryParse(aRoll);
+    final bNum = num.tryParse(bRoll);
+    if (aNum != null && bNum != null) return aNum.compareTo(bNum);
+
+    return aRoll.toLowerCase().compareTo(bRoll.toLowerCase());
   }
 }

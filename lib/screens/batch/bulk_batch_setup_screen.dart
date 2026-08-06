@@ -37,7 +37,7 @@ class _BulkBatchSetupScreenState extends State<BulkBatchSetupScreen> {
 
   String? _selectedInstructor;
   String _selectedStatus = 'Upcoming';
-  String _selectedCategory = 'RPTO';
+  String _selectedCategory = 'RPC';
   DateTime? _startDate;
   DateTime? _endDate;
 
@@ -46,7 +46,7 @@ class _BulkBatchSetupScreenState extends State<BulkBatchSetupScreen> {
   int _failed = 0;
 
   final List<String> _statusOptions = ['Upcoming', 'Ongoing', 'Completed'];
-  final List<String> _categoryOptions = ['RPTO', 'FPV', 'Aerial'];
+  final List<String> _categoryOptions = ['RPC'];
 
   bool _isDark(BuildContext c) => Theme.of(c).brightness == Brightness.dark;
   Color _kNavy(BuildContext c) =>
@@ -385,7 +385,7 @@ class _BulkBatchSetupScreenState extends State<BulkBatchSetupScreen> {
               items: _categoryOptions
                   .map((c) => DropdownMenuItem(value: c, child: Text(c)))
                   .toList(),
-              onChanged: (v) => setState(() => _selectedCategory = v ?? 'RPTO'),
+              onChanged: (v) => setState(() => _selectedCategory = v ?? 'RPC'),
             ),
             const SizedBox(height: 16),
 

@@ -44,13 +44,13 @@ class _BatchDetailScreenState extends State<BatchDetailScreen>
   String? _selectedInstructor;
   String? _selectedDrone;
   String _selectedStatus = 'Upcoming';
-  String _selectedCategory = 'RPTO';
+  String _selectedCategory = 'RPC';
   DateTime? _startDate;
   DateTime? _endDate;
   TimeOfDay? _startTime;
   TimeOfDay? _endTime;
 
-  final List<String> _categoryOptions = ['RPTO', 'FPV', 'Aerial'];
+  final List<String> _categoryOptions = ['RPC'];
 
   bool _initialized = false;
 
@@ -124,7 +124,7 @@ class _BatchDetailScreenState extends State<BatchDetailScreen>
     _endDate = data['endDate'] != null
         ? (data['endDate'] as Timestamp).toDate()
         : null;
-    _selectedCategory = (data['category'] ?? 'RPTO').toString();
+    _selectedCategory = (data['category'] ?? 'RPC').toString();
     _locationController.text = data['location'] ?? '';
     _scheduleDaysController.text = data['scheduleDays'] ?? '';
     _sessionDurationController.text = data['sessionDuration'] ?? '';
@@ -653,7 +653,7 @@ class _BatchDetailScreenState extends State<BatchDetailScreen>
                 items: _categoryOptions
                     .map((c) => DropdownMenuItem(value: c, child: Text(c)))
                     .toList(),
-                onChanged: (v) => setState(() => _selectedCategory = v ?? 'RPTO'),
+                onChanged: (v) => setState(() => _selectedCategory = v ?? 'RPC'),
               )
                   : TextFormField(
                 enabled: false,
@@ -1045,11 +1045,14 @@ class _BatchDetailScreenState extends State<BatchDetailScreen>
               final allStudents = allDocs.map((d) => StudentModel.fromDocument(d)).toList();
               final students = allStudents.where((s) {
                 final matchesSearch = _studentSearchQuery.isEmpty ||
+                    s.rollNo.toLowerCase().contains(_studentSearchQuery) ||
                     s.name.toLowerCase().contains(_studentSearchQuery);
                 final matchesFilter =
                     _studentStatusFilter == 'All' || s.status == _studentStatusFilter;
                 return matchesSearch && matchesFilter;
-              }).toList();
+              }).toList()
+              // Roll No ascending (numeric-aware; blanks sort last)
+                ..sort(StudentModel.compareRollNo);
 
               if (students.isEmpty) {
                 return Center(
@@ -1090,7 +1093,12 @@ class _BatchDetailScreenState extends State<BatchDetailScreen>
                           style: TextStyle(color: _kTeal(context), fontWeight: FontWeight.w700),
                         ),
                       ),
-                      title: Text(student.name, style: TextStyle(color: _kTextPrimary(context), fontWeight: FontWeight.w600)),
+                      title: Text(
+                        student.rollNo.isNotEmpty
+                            ? '${student.rollNo} • ${student.name}'
+                            : student.name,
+                        style: TextStyle(color: _kTextPrimary(context), fontWeight: FontWeight.w600),
+                      ),
                       subtitle: Text(student.status, style: TextStyle(color: _kTextSecondary(context))),
                       trailing: Icon(Icons.chevron_right, color: _kTextSecondary(context)),
                       onTap: () {

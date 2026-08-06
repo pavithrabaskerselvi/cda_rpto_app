@@ -23,7 +23,7 @@ class _AddBatchScreenState extends State<AddBatchScreen> {
 
   String? _selectedInstructor;
   String _selectedStatus = 'Upcoming';
-  String _selectedCategory = 'RPTO';
+  String _selectedCategory = 'RPC';
   DateTime? _startDate;
   DateTime? _endDate;
   TimeOfDay? _startTime;
@@ -32,7 +32,7 @@ class _AddBatchScreenState extends State<AddBatchScreen> {
   bool _isSaving = false;
 
   final List<String> _statusOptions = ['Upcoming', 'Ongoing', 'Completed'];
-  final List<String> _categoryOptions = ['RPTO', 'FPV', 'Aerial'];
+  final List<String> _categoryOptions = ['RPC'];
 
   // ---- Theme-aware colors: flip between dark/light based on current
   // Theme brightness instead of hardcoded dark-only constants. ----
@@ -319,7 +319,7 @@ class _AddBatchScreenState extends State<AddBatchScreen> {
               ))
                   .toList(),
               onChanged: (value) {
-                setState(() => _selectedCategory = value ?? 'RPTO');
+                setState(() => _selectedCategory = value ?? 'RPC');
               },
             ),
             const SizedBox(height: 16),

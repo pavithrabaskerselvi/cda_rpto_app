@@ -20,6 +20,7 @@ class StudentAddScreen extends StatefulWidget {
 
 class _StudentAddScreenState extends State<StudentAddScreen> {
   final _formKey = GlobalKey<FormState>();
+  final _rollNoCtrl = TextEditingController();
   final _nameCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
@@ -45,6 +46,7 @@ class _StudentAddScreenState extends State<StudentAddScreen> {
 
   @override
   void dispose() {
+    _rollNoCtrl.dispose();
     _nameCtrl.dispose();
     _emailCtrl.dispose();
     _phoneCtrl.dispose();
@@ -99,6 +101,7 @@ class _StudentAddScreenState extends State<StudentAddScreen> {
       final docRef = FirebaseFirestore.instance.collection('students').doc();
       final student = StudentModel(
         id: docRef.id,
+        rollNo: _rollNoCtrl.text.trim(),
         name: _nameCtrl.text.trim(),
         email: _emailCtrl.text.trim(),
         phone: _phoneCtrl.text.trim(),
@@ -156,6 +159,14 @@ class _StudentAddScreenState extends State<StudentAddScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              TextFormField(
+                controller: _rollNoCtrl,
+                style: TextStyle(color: _textPrimary(context)),
+                decoration: _decoration(context, 'Roll No *'),
+                validator: (v) =>
+                v == null || v.trim().isEmpty ? 'Required' : null,
+              ),
+              const SizedBox(height: 14),
               TextFormField(
                 controller: _nameCtrl,
                 style: TextStyle(color: _textPrimary(context)),

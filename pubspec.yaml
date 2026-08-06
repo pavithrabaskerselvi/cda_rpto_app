@@ -25,6 +25,7 @@ dependencies:
     # QR / Barcode (future scope - drone/equipment tracking)
     mobile_scanner: ^6.0.2
     qr_flutter: ^4.1.0
+    syncfusion_flutter_pdfviewer: ^31.1.17
 
     # Utils
     intl: ^0.19.0

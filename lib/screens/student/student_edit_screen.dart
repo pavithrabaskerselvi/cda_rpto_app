@@ -14,6 +14,7 @@ class StudentEditScreen extends StatefulWidget {
 
 class _StudentEditScreenState extends State<StudentEditScreen> {
   final _formKey = GlobalKey<FormState>();
+  late TextEditingController _rollNoCtrl;
   late TextEditingController _nameCtrl;
   late TextEditingController _emailCtrl;
   late TextEditingController _phoneCtrl;
@@ -34,6 +35,7 @@ class _StudentEditScreenState extends State<StudentEditScreen> {
   void initState() {
     super.initState();
     final s = widget.student;
+    _rollNoCtrl = TextEditingController(text: s.rollNo);
     _nameCtrl = TextEditingController(text: s.name);
     _emailCtrl = TextEditingController(text: s.email);
     _phoneCtrl = TextEditingController(text: s.phone);
@@ -49,6 +51,7 @@ class _StudentEditScreenState extends State<StudentEditScreen> {
 
   @override
   void dispose() {
+    _rollNoCtrl.dispose();
     _nameCtrl.dispose();
     _emailCtrl.dispose();
     _phoneCtrl.dispose();
@@ -78,15 +81,16 @@ class _StudentEditScreenState extends State<StudentEditScreen> {
 
   Future<void> _updateStudent() async {
     if (!_formKey.currentState!.validate()) return;
-    if (_batchId == null || _companyId == null) {
+    if (_batchId == null) {
       ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Select batch and company')));
+          .showSnackBar(const SnackBar(content: Text('Select a batch')));
       return;
     }
     setState(() => _saving = true);
 
     try {
       final updated = widget.student.copyWith(
+        rollNo: _rollNoCtrl.text.trim(),
         name: _nameCtrl.text.trim(),
         email: _emailCtrl.text.trim(),
         phone: _phoneCtrl.text.trim(),
@@ -151,6 +155,13 @@ class _StudentEditScreenState extends State<StudentEditScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              TextFormField(
+                controller: _rollNoCtrl,
+                style: TextStyle(color: ThemeColors.textPrimary(context)),
+                decoration: _decoration(context, 'Roll No *'),
+                validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
+              ),
+              const SizedBox(height: 14),
               TextFormField(
                 controller: _nameCtrl,
                 style: TextStyle(color: ThemeColors.textPrimary(context)),
@@ -224,36 +235,6 @@ class _StudentEditScreenState extends State<StudentEditScreen> {
                       });
                     },
                     validator: (v) => v == null ? 'Select a batch' : null,
-                  );
-                },
-              ),
-              const SizedBox(height: 14),
-              StreamBuilder<QuerySnapshot>(
-                stream: FirebaseFirestore.instance.collection('branches').snapshots(),
-                builder: (context, snapshot) {
-                  if (!snapshot.hasData) return const LinearProgressIndicator(color: kTeal);
-                  final companies = snapshot.data!.docs;
-                  final validIds = companies.map((c) => c.id).toSet();
-                  final currentValue = validIds.contains(_companyId) ? _companyId : null;
-                  return DropdownButtonFormField<String>(
-                    initialValue: currentValue,
-                    dropdownColor: ThemeColors.surface(context),
-                    style: TextStyle(color: ThemeColors.textPrimary(context)),
-                    decoration: _decoration(context, 'Branch *'),
-                    items: companies.map((c) {
-                      final data = c.data() as Map<String, dynamic>;
-                      final name = data['branchName'] ?? data['companyName'] ?? data['name'] ?? c.id;
-                      return DropdownMenuItem(value: c.id, child: Text(name));
-                    }).toList(),
-                    onChanged: (v) {
-                      final match = companies.firstWhere((c) => c.id == v);
-                      final data = match.data() as Map<String, dynamic>;
-                      setState(() {
-                        _companyId = v;
-                        _companyName = data['branchName'] ?? data['companyName'] ?? data['name'] ?? '';
-                      });
-                    },
-                    validator: (v) => v == null ? 'Select a branch' : null,
                   );
                 },
               ),
