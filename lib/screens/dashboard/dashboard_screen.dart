@@ -7,7 +7,6 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../config/theme.dart';
 import '../../services/auth_service.dart';
-import '../../services/dashboard_service.dart';
 import '../company/company_list_screen.dart';
 import '../drone/drone_list_screen.dart';
 import '../simulator/sim_list_screen.dart';
@@ -15,12 +14,14 @@ import '../student/student_list_screen.dart';
 import '../batch/batch_list_screen.dart';
 import '../instructor/instructor_list_screen.dart';
 import '../profile/profile_screen.dart';
+import '../search/search_screen.dart';
 
 /// Dashboard restyled as a flight-instrument / HUD panel: corner-bracket
 /// "targeting" frames, a radar sweep behind the crest, monospace readouts,
-/// and signal-strength ticks on the fleet counters. Every recurring device
-/// (brackets, ticks, tabular clock) is drawn from the same aviation-console
-/// vocabulary so the page reads as one instrument, not a stack of cards.
+/// and a squadron of big flying drones sweeping the header. Every recurring
+/// device (brackets, ticks, tabular clock) is drawn from the same aviation-
+/// console vocabulary so the page reads as one instrument, not a stack of
+/// cards.
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
 
@@ -38,10 +39,21 @@ class _DashboardScreenState extends State<DashboardScreen>
   late AnimationController _radarController;
   // Drives the shimmer callsign text and the status-dot pulse.
   late AnimationController _pulseController;
-  // Drives the drone that periodically flies across the header.
+  // Drives the drones that periodically fly across the header.
   late AnimationController _droneController;
 
   int _navIndex = 0;
+
+  // Dark navy used for all header text/icons so everything stays clearly
+  // readable against the light sky-blue gradient background — the theme's
+  // default AppColors.textSecondary is a light gray meant for dark
+  // backdrops and washes out here.
+  static const Color _headerText = Color(0xFF0A2540);
+
+  // Glowing electric-blue used for the flying-drone animation — matches
+  // the reference "targeting HUD" quadcopter look: X-shaped arms, circular
+  // rotor rings with a soft glow, and a lit-up center body.
+  static const Color _droneColor = Color(0xFF4FC3F7);
 
   @override
   void initState() {
@@ -136,26 +148,18 @@ class _DashboardScreenState extends State<DashboardScreen>
     setState(() => _navIndex = index);
 
     if (index == 1) {
-      // Search screen not built yet — keep the "coming soon" placeholder.
-      ScaffoldMessenger.of(context).clearSnackBars();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          behavior: SnackBarBehavior.floating,
-          backgroundColor: AppColors.surface,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-            side: BorderSide(color: AppColors.blue.withValues(alpha: 0.3)),
-          ),
-          content: const Text('Search — coming soon', style: TextStyle(fontWeight: FontWeight.w600)),
-        ),
-      );
+      // Search tab tapped — open the real Search screen.
       setState(() => _navIndex = 0);
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const SearchScreen()),
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    // Nunito applied page-wide: every Text/​_ShimmerText on this screen
+    // Nunito applied page-wide: every Text/_ShimmerText on this screen
     // inherits it, including the clock and readouts.
     final nunitoTheme = GoogleFonts.nunitoTextTheme(Theme.of(context).textTheme);
 
@@ -164,392 +168,373 @@ class _DashboardScreenState extends State<DashboardScreen>
         textTheme: nunitoTheme,
         primaryTextTheme: nunitoTheme,
       ),
-      child: Scaffold(
-        // ---------- Left side navigation drawer: all modules + logout ----------
-        drawer: _HudDrawer(userName: _userName),
-        body: SafeArea(
-          bottom: false,
-          child: RefreshIndicator(
-            color: AppColors.blue,
-            onRefresh: () async {
-              await Future.delayed(const Duration(milliseconds: 400));
-            },
-            child: SingleChildScrollView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // ---------- Header: status strip, radar crest, callsign, flying drone ----------
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          AppColors.blue.withValues(alpha: 0.22),
-                          AppColors.blue.withValues(alpha: 0.0),
-                        ],
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                      ),
-                    ),
-                    child: Stack(
-                      clipBehavior: Clip.none,
-                      children: [
-                        // Flying drone: sweeps left-to-right across the header,
-                        // banking slightly, fading in/out at the edges, then
-                        // pauses before the next pass.
-                        Positioned.fill(
-                          child: AnimatedBuilder(
-                            animation: _droneController,
-                            builder: (context, child) {
-                              return CustomPaint(
-                                painter: _FlyingDronePainter(
-                                  progress: _droneController.value,
-                                  color: AppColors.teal,
-                                ),
-                              );
-                            },
-                          ),
+      // ---------- Page-wide gradient backdrop ----------
+      // Wraps the whole Scaffold so the gradient shows through everywhere,
+      // including behind the AppBar-less header, the scrollable body, and
+      // the floating bottom nav bar. The Scaffold below is made transparent
+      // so this gradient is what's actually visible.
+      child: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            // Original two-tone sky: a single light sky blue fading
+            // straight down into one deeper blue base — no middle band.
+            colors: [
+              Color(0xFF8EC9F0), // pale sky blue
+              Color(0xFF1D5C99), // deeper blue base
+            ],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
+        ),
+        child: Scaffold(
+          // Transparent so the Container's gradient behind it shows through
+          // instead of being covered by the Scaffold's default background.
+          backgroundColor: Colors.transparent,
+          // ---------- Left side navigation drawer: all modules + logout ----------
+          drawer: _HudDrawer(userName: _userName),
+          body: SafeArea(
+            bottom: false,
+            child: RefreshIndicator(
+              color: AppColors.blue,
+              onRefresh: () async {
+                await Future.delayed(const Duration(milliseconds: 400));
+              },
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // ---------- Header: status strip, radar crest, callsign, flying drones ----------
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            AppColors.blue.withValues(alpha: 0.22),
+                            AppColors.blue.withValues(alpha: 0.0),
+                          ],
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
                         ),
+                      ),
+                      child: Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          // Flying drones: sweep left-to-right across the header,
+                          // banking slightly, fading in/out at the edges, then
+                          // pausing before the next pass. Drawn big and bold, with
+                          // a glowing electric-blue "targeting HUD" look, so the
+                          // pair reads clearly against the sky.
+                          Positioned.fill(
+                            child: AnimatedBuilder(
+                              animation: _droneController,
+                              builder: (context, child) {
+                                return CustomPaint(
+                                  painter: _FlyingDronePainter(
+                                    progress: _droneController.value,
+                                    color: _droneColor,
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
 
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // Status strip: hamburger menu + pulsing ONLINE tag + logout
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Row(
-                                  children: [
-                                    // Hamburger icon opens the left drawer.
-                                    Builder(
-                                      builder: (context) => InkWell(
-                                        borderRadius: BorderRadius.circular(8),
-                                        onTap: () => Scaffold.of(context).openDrawer(),
-                                        child: const Padding(
-                                          padding: EdgeInsets.only(right: 4),
-                                          child: Icon(Icons.menu_rounded,
-                                              color: AppColors.textSecondary, size: 22),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Status strip: hamburger menu + pulsing ONLINE tag + logout
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Row(
+                                    children: [
+                                      // Hamburger icon opens the left drawer.
+                                      Builder(
+                                        builder: (context) => InkWell(
+                                          borderRadius: BorderRadius.circular(8),
+                                          onTap: () => Scaffold.of(context).openDrawer(),
+                                          child: const Padding(
+                                            padding: EdgeInsets.only(right: 4),
+                                            child: Icon(Icons.menu_rounded,
+                                                color: _headerText, size: 22),
+                                          ),
                                         ),
                                       ),
+                                      const SizedBox(width: 6),
+                                      AnimatedBuilder(
+                                        animation: _pulseController,
+                                        builder: (context, child) {
+                                          final pulse = 0.5 +
+                                              0.5 * math.sin(_pulseController.value * 2 * math.pi);
+                                          return Row(
+                                            children: [
+                                              Container(
+                                                width: 7,
+                                                height: 7,
+                                                decoration: BoxDecoration(
+                                                  shape: BoxShape.circle,
+                                                  color: AppColors.green,
+                                                  boxShadow: [
+                                                    BoxShadow(
+                                                      color: AppColors.green
+                                                          .withValues(alpha: 0.25 + 0.45 * pulse),
+                                                      blurRadius: 7,
+                                                      spreadRadius: 1.5,
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                              const SizedBox(width: 7),
+                                              _ShimmerText(
+                                                text: 'SYSTEM ONLINE',
+                                                controller: _pulseController,
+                                                highlightColor: AppColors.green,
+                                                style: const TextStyle(
+                                                  color: _headerText,
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.w700,
+                                                  letterSpacing: 1.4,
+                                                ),
+                                              ),
+                                            ],
+                                          );
+                                        },
+                                      ),
+                                    ],
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.logout, color: _headerText, size: 20),
+                                    onPressed: () => AuthService.logout(),
+                                  ),
+                                ],
+                              ),
+
+                              // Center branding: radar-swept crest
+                              Center(
+                                child: Column(
+                                  children: [
+                                    SizedBox(
+                                      width: 96,
+                                      height: 96,
+                                      child: Stack(
+                                        alignment: Alignment.center,
+                                        children: [
+                                          AnimatedBuilder(
+                                            animation: _radarController,
+                                            builder: (context, child) => CustomPaint(
+                                              size: const Size(96, 96),
+                                              painter: _RadarSweepPainter(
+                                                progress: _radarController.value,
+                                                ringColor: AppColors.blue,
+                                                sweepColor: AppColors.teal,
+                                              ),
+                                            ),
+                                          ),
+                                          Container(
+                                            width: 82,
+                                            height: 82,
+                                            decoration: BoxDecoration(
+                                              shape: BoxShape.circle,
+                                              color: Colors.white,
+                                              border: Border.all(
+                                                color: AppColors.blue.withValues(alpha: 0.5),
+                                                width: 1.5,
+                                              ),
+                                              boxShadow: [
+                                                BoxShadow(
+                                                  color: AppColors.blue.withValues(alpha: 0.25),
+                                                  blurRadius: 14,
+                                                  spreadRadius: 1,
+                                                ),
+                                              ],
+                                            ),
+                                            // ClipOval + cover + slight upscale so the logo
+                                            // fills the circle edge-to-edge with no white
+                                            // ring showing around it.
+                                            child: ClipOval(
+                                              child: Transform.scale(
+                                                scale: 1.25,
+                                                child: Image.asset(
+                                                  'lib/assets/images/logo.webp',
+                                                  fit: BoxFit.cover,
+                                                  filterQuality: FilterQuality.high,
+                                                  isAntiAlias: true,
+                                                  errorBuilder: (context, error, stackTrace) =>
+                                                  const Icon(Icons.flight_takeoff,
+                                                      color: AppColors.blue, size: 32),
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
                                     ),
-                                    const SizedBox(width: 6),
-                                    AnimatedBuilder(
-                                      animation: _pulseController,
-                                      builder: (context, child) {
-                                        final pulse = 0.5 +
-                                            0.5 * math.sin(_pulseController.value * 2 * math.pi);
-                                        return Row(
-                                          children: [
-                                            Container(
-                                              width: 7,
-                                              height: 7,
-                                              decoration: BoxDecoration(
-                                                shape: BoxShape.circle,
-                                                color: AppColors.green,
-                                                boxShadow: [
-                                                  BoxShadow(
-                                                    color: AppColors.green
-                                                        .withValues(alpha: 0.25 + 0.45 * pulse),
-                                                    blurRadius: 7,
-                                                    spreadRadius: 1.5,
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                            const SizedBox(width: 7),
-                                            _ShimmerText(
-                                              text: 'SYSTEM ONLINE',
-                                              controller: _pulseController,
-                                              highlightColor: AppColors.green,
-                                              style: const TextStyle(
-                                                color: AppColors.textSecondary,
-                                                fontSize: 11,
-                                                fontWeight: FontWeight.w700,
-                                                letterSpacing: 1.4,
-                                              ),
-                                            ),
-                                          ],
-                                        );
-                                      },
+                                    const SizedBox(height: 14),
+                                    _ShimmerText(
+                                      text: 'CHENNAI DRONE ACADEMY',
+                                      controller: _pulseController,
+                                      highlightColor: AppColors.blue,
+                                      style: const TextStyle(
+                                        color: AppColors.textPrimary,
+                                        fontSize: 22,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 5),
+                                    _ShimmerText(
+                                      text: 'SKYLYNK UNMANNED SYSTEMS PVT.LTD',
+                                      controller: _pulseController,
+                                      highlightColor: AppColors.blue,
+                                      phase: 0.15,
+                                      style: const TextStyle(
+                                        color: _headerText,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w700,
+                                        letterSpacing: 2,
+                                      ),
                                     ),
                                   ],
                                 ),
-                                IconButton(
-                                  icon: const Icon(Icons.logout, color: AppColors.textSecondary, size: 20),
-                                  onPressed: () => AuthService.logout(),
-                                ),
-                              ],
-                            ),
+                              ),
 
-                            // Center branding: radar-swept crest
-                            Center(
-                              child: Column(
+                              const SizedBox(height: 18),
+
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  SizedBox(
-                                    width: 96,
-                                    height: 96,
-                                    child: Stack(
-                                      alignment: Alignment.center,
-                                      children: [
-                                        AnimatedBuilder(
-                                          animation: _radarController,
-                                          builder: (context, child) => CustomPaint(
-                                            size: const Size(96, 96),
-                                            painter: _RadarSweepPainter(
-                                              progress: _radarController.value,
-                                              ringColor: AppColors.blue,
-                                              sweepColor: AppColors.teal,
-                                            ),
-                                          ),
-                                        ),
-                                        Container(
-                                          width: 82,
-                                          height: 82,
-                                          decoration: BoxDecoration(
-                                            shape: BoxShape.circle,
-                                            color: Colors.white,
-                                            border: Border.all(
-                                              color: AppColors.blue.withValues(alpha: 0.5),
-                                              width: 1.5,
-                                            ),
-                                            boxShadow: [
-                                              BoxShadow(
-                                                color: AppColors.blue.withValues(alpha: 0.25),
-                                                blurRadius: 14,
-                                                spreadRadius: 1,
-                                              ),
-                                            ],
-                                          ),
-                                          // ClipOval + cover + slight upscale so the logo
-                                          // fills the circle edge-to-edge with no white
-                                          // ring showing around it.
-                                          child: ClipOval(
-                                            child: Transform.scale(
-                                              scale: 1.25,
-                                              child: Image.asset(
-                                                'lib/assets/images/logo.webp',
-                                                fit: BoxFit.cover,
-                                                filterQuality: FilterQuality.high,
-                                                isAntiAlias: true,
-                                                errorBuilder: (context, error, stackTrace) =>
-                                                const Icon(Icons.flight_takeoff,
-                                                    color: AppColors.blue, size: 32),
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  const SizedBox(height: 14),
                                   _ShimmerText(
-                                    text: 'CHENNAI DRONE ACADEMY',
+                                    text: _userName != null ? '${_greeting()}, $_userName' : _greeting(),
                                     controller: _pulseController,
-                                    highlightColor: AppColors.blue,
+                                    phase: 0.3,
                                     style: const TextStyle(
-                                      color: AppColors.textPrimary,
-                                      fontSize: 22,
-                                      fontWeight: FontWeight.w800,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 5),
-                                  _ShimmerText(
-                                    text: 'SKYLYNC UNMANNED SYSTEMS pvt.ltd',
-                                    controller: _pulseController,
-                                    highlightColor: AppColors.blue,
-                                    phase: 0.15,
-                                    style: const TextStyle(
-                                      color: AppColors.textSecondary,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w700,
-                                      letterSpacing: 2,
+                                      color: _headerText,
+                                      fontSize: 14.5,
+                                      fontWeight: FontWeight.w600,
                                     ),
                                   ),
                                 ],
                               ),
-                            ),
-
-                            const SizedBox(height: 18),
-
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                _ShimmerText(
-                                  text: _userName != null ? '${_greeting()}, $_userName' : _greeting(),
-                                  controller: _pulseController,
-                                  phase: 0.3,
-                                  style: const TextStyle(
-                                    color: AppColors.textSecondary,
-                                    fontSize: 14.5,
-                                    fontWeight: FontWeight.w600,
+                              const SizedBox(height: 9),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Icon(Icons.calendar_today_outlined, size: 14, color: _headerText),
+                                  const SizedBox(width: 6),
+                                  _ShimmerText(
+                                    text: _todayLabel(),
+                                    controller: _pulseController,
+                                    phase: 0.45,
+                                    style: const TextStyle(
+                                      color: _headerText,
+                                      fontSize: 13,
+                                    ),
                                   ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 9),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                const Icon(Icons.calendar_today_outlined, size: 14, color: AppColors.textSecondary),
-                                const SizedBox(width: 6),
-                                _ShimmerText(
-                                  text: _todayLabel(),
-                                  controller: _pulseController,
-                                  phase: 0.45,
-                                  style: const TextStyle(
-                                    color: AppColors.textSecondary,
-                                    fontSize: 13,
+                                  const SizedBox(width: 14),
+                                  const Icon(Icons.access_time, size: 14, color: _headerText),
+                                  const SizedBox(width: 6),
+                                  _ShimmerText(
+                                    text: _timeLabel(),
+                                    controller: _pulseController,
+                                    phase: 0.6,
+                                    style: const TextStyle(
+                                      color: _headerText,
+                                      fontSize: 13,
+                                      fontFeatures: [FontFeature.tabularFigures()],
+                                    ),
                                   ),
-                                ),
-                                const SizedBox(width: 14),
-                                const Icon(Icons.access_time, size: 14, color: AppColors.textSecondary),
-                                const SizedBox(width: 6),
-                                _ShimmerText(
-                                  text: _timeLabel(),
-                                  controller: _pulseController,
-                                  phase: 0.6,
-                                  style: const TextStyle(
-                                    color: AppColors.textSecondary,
-                                    fontSize: 13,
-                                    fontFeatures: [FontFeature.tabularFigures()],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ],
+                                ],
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
 
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _sectionEyebrow('FLEET STATUS', AppColors.blue),
-                        const SizedBox(height: 14),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const SizedBox(height: 8),
+                          _sectionEyebrow('CONTROL MODULES', AppColors.teal),
+                          const SizedBox(height: 14),
 
-                        StreamBuilder<Map<String, int>>(
-                          stream: DashboardService.categoryTotalsStream(),
-                          builder: (context, snapshot) {
-                            final totals = snapshot.data ?? {'RPTO': 0, 'FPV': 0, 'Aerial': 0};
-                            return Row(
-                              children: [
-                                Expanded(
-                                  child: _InstrumentCard(
-                                    label: 'RPTO',
-                                    count: totals['RPTO'] ?? 0,
-                                    color: AppColors.blue,
-                                    icon: Icons.flight_takeoff,
-                                    controller: _pulseController,
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: _InstrumentCard(
-                                    label: 'FPV',
-                                    count: totals['FPV'] ?? 0,
-                                    color: AppColors.purple,
-                                    icon: Icons.videogame_asset,
-                                    controller: _pulseController,
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: _InstrumentCard(
-                                    label: 'AERIAL',
-                                    count: totals['Aerial'] ?? 0,
-                                    color: AppColors.teal,
-                                    icon: Icons.terrain,
-                                    controller: _pulseController,
-                                  ),
-                                ),
-                              ],
-                            );
-                          },
-                        ),
+                          // ---- Control Modules grid (3 columns, matches reference screenshot) ----
+                          GridView.count(
+                            crossAxisCount: 3,
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            crossAxisSpacing: 12,
+                            mainAxisSpacing: 12,
+                            childAspectRatio: 0.85,
+                            children: [
+                              _TapColorCard(
+                                title: 'Company Details',
+                                imagePath: 'lib/assets/images/company_details.jpeg',
+                                color: AppColors.blue,
+                                controller: _pulseController,
+                                onTap: () => Navigator.push(context,
+                                    MaterialPageRoute(builder: (_) => const CompanyListScreen())),
+                              ),
+                              _TapColorCard(
+                                title: 'Instructors',
+                                imagePath: 'lib/assets/images/instructor.jpeg',
+                                color: AppColors.teal,
+                                controller: _pulseController,
+                                onTap: () => Navigator.push(context,
+                                    MaterialPageRoute(builder: (_) => const InstructorListScreen())),
+                              ),
+                              _TapColorCard(
+                                title: 'Drones',
+                                imagePath: 'lib/assets/images/drone.jpeg',
+                                color: AppColors.amber,
+                                controller: _pulseController,
+                                onTap: () => Navigator.push(context,
+                                    MaterialPageRoute(builder: (_) => const DroneListScreen())),
+                              ),
+                              _TapColorCard(
+                                title: 'Simulators',
+                                imagePath: 'lib/assets/images/simulator.jpeg',
+                                color: AppColors.purple,
+                                controller: _pulseController,
+                                onTap: () => Navigator.push(context,
+                                    MaterialPageRoute(builder: (_) => const SimListScreen())),
+                              ),
+                              _TapColorCard(
+                                title: 'Students',
+                                imagePath: 'lib/assets/images/student.jpeg',
+                                color: AppColors.green,
+                                controller: _pulseController,
+                                onTap: () => Navigator.push(context,
+                                    MaterialPageRoute(builder: (_) => const StudentListScreen())),
+                              ),
+                              _TapColorCard(
+                                title: 'Batches',
+                                imagePath: 'lib/assets/images/batch_list.jpeg',
+                                color: AppColors.coral,
+                                controller: _pulseController,
+                                onTap: () => Navigator.push(context,
+                                    MaterialPageRoute(builder: (_) => const BatchListScreen())),
+                              ),
+                            ],
+                          ),
 
-                        const SizedBox(height: 32),
-                        _sectionEyebrow('CONTROL MODULES', AppColors.teal),
-                        const SizedBox(height: 14),
-
-                        // ---- Control Modules grid (3 columns, matches reference screenshot) ----
-                        GridView.count(
-                          crossAxisCount: 3,
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          crossAxisSpacing: 12,
-                          mainAxisSpacing: 12,
-                          childAspectRatio: 0.85,
-                          children: [
-                            _TapColorCard(
-                              title: 'Company Details',
-                              imagePath: 'lib/assets/images/company_details.jpeg',
-                              color: AppColors.blue,
-                              controller: _pulseController,
-                              onTap: () => Navigator.push(context,
-                                  MaterialPageRoute(builder: (_) => const CompanyListScreen())),
-                            ),
-                            _TapColorCard(
-                              title: 'Instructors',
-                              imagePath: 'lib/assets/images/instructor.jpeg',
-                              color: AppColors.teal,
-                              controller: _pulseController,
-                              onTap: () => Navigator.push(context,
-                                  MaterialPageRoute(builder: (_) => const InstructorListScreen())),
-                            ),
-                            _TapColorCard(
-                              title: 'Drones',
-                              imagePath: 'lib/assets/images/drone.jpeg',
-                              color: AppColors.amber,
-                              controller: _pulseController,
-                              onTap: () => Navigator.push(context,
-                                  MaterialPageRoute(builder: (_) => const DroneListScreen())),
-                            ),
-                            _TapColorCard(
-                              title: 'Simulators',
-                              imagePath: 'lib/assets/images/simulator.jpeg',
-                              color: AppColors.purple,
-                              controller: _pulseController,
-                              onTap: () => Navigator.push(context,
-                                  MaterialPageRoute(builder: (_) => const SimListScreen())),
-                            ),
-                            _TapColorCard(
-                              title: 'Students',
-                              imagePath: 'lib/assets/images/student.jpeg',
-                              color: AppColors.green,
-                              controller: _pulseController,
-                              onTap: () => Navigator.push(context,
-                                  MaterialPageRoute(builder: (_) => const StudentListScreen())),
-                            ),
-                            _TapColorCard(
-                              title: 'Batches',
-                              imagePath: 'lib/assets/images/batch_list.jpeg',
-                              color: AppColors.coral,
-                              controller: _pulseController,
-                              onTap: () => Navigator.push(context,
-                                  MaterialPageRoute(builder: (_) => const BatchListScreen())),
-                            ),
-                          ],
-                        ),
-
-                        const SizedBox(height: 28),
-                        _BrandFooter(controller: _pulseController),
-                      ],
+                          const SizedBox(height: 28),
+                          _BrandFooter(controller: _pulseController),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
-        ),
-        bottomNavigationBar: _HudBottomNav(
-          currentIndex: _navIndex,
-          onTap: _onNavTap,
+          bottomNavigationBar: _HudBottomNav(
+            currentIndex: _navIndex,
+            onTap: _onNavTap,
+          ),
         ),
       ),
     );
@@ -572,7 +557,7 @@ class _DashboardScreenState extends State<DashboardScreen>
           controller: _pulseController,
           highlightColor: accent,
           style: const TextStyle(
-            color: AppColors.textSecondary,
+            color: _headerText,
             fontSize: 13.5,
             fontWeight: FontWeight.w700,
             letterSpacing: 1.1,
@@ -818,22 +803,40 @@ class _RadarSweepPainter extends CustomPainter {
 
 // ---------------- Flying drone painter (header signature animation) ----------------
 
-/// Draws a small drone silhouette that sweeps left-to-right across the
-/// header on a gentle arc, spinning rotor blurs as it goes, then fades out
-/// before looping. `progress` runs 0→1 across the whole cycle; the drone is
-/// only visible for the first ~55% of it, giving a pause before the next pass.
+/// Draws a small squadron of glowing blue quadcopter drones sweeping
+/// left-to-right across the header at staggered times, on different
+/// vertical lanes. Each drone is rendered as an X-arm frame with circular
+/// "targeting" rotor rings and a lit-up center body — matching the
+/// reference HUD-style glowing drone artwork — rather than a solid
+/// silhouette. `progress` runs 0→1 across the whole shared cycle; each
+/// drone applies its own phase offset on top of that so the two don't fly
+/// in lockstep.
 class _FlyingDronePainter extends CustomPainter {
   final double progress;
   final Color color;
 
   _FlyingDronePainter({required this.progress, required this.color});
 
+  // Only two drones in the squadron, on different lanes/timings/sizes so
+  // they read as a pair rather than a crowd.
+  static const List<_DroneConfig> _drones = [
+    _DroneConfig(phaseOffset: 0.00, laneY: 0.18, scale: 2.00, flightSpan: 0.55),
+    _DroneConfig(phaseOffset: 0.50, laneY: 0.34, scale: 1.70, flightSpan: 0.50),
+  ];
+
   @override
   void paint(Canvas canvas, Size size) {
-    const flightSpan = 0.55;
-    if (progress > flightSpan) return;
+    for (final drone in _drones) {
+      _paintDrone(canvas, size, drone);
+    }
+  }
 
-    final t = progress / flightSpan; // 0..1 across the visible flight
+  void _paintDrone(Canvas canvas, Size size, _DroneConfig cfg) {
+    final localProgress = (progress + cfg.phaseOffset) % 1.0;
+    if (localProgress > cfg.flightSpan) return;
+
+    final t = localProgress / cfg.flightSpan; // 0..1 across this drone's flight
+    final scale = cfg.scale;
 
     // Fade in over the first 12%, hold, fade out over the last 15%.
     double opacity = 1.0;
@@ -847,54 +850,68 @@ class _FlyingDronePainter extends CustomPainter {
 
     // Gentle arc: left edge to right edge, dipping slightly in the middle.
     final dx = -0.15 + t * 1.3;
-    final dy = 0.18 + 0.10 * math.sin(t * math.pi);
+    final dy = cfg.laneY + 0.08 * math.sin(t * math.pi);
     final center = Offset(size.width * dx, size.height * dy);
 
     // Slight banking tilt as it "flies".
     final tilt = math.sin(t * math.pi) * 0.12;
 
-    final bodyPaint = Paint()..color = color.withValues(alpha: 0.85 * opacity);
     final armPaint = Paint()
+      ..color = color.withValues(alpha: 0.9 * opacity)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.8 * scale
+      ..strokeCap = StrokeCap.round;
+    // Soft outer glow ring around each rotor, like the reference image.
+    final rotorGlowPaint = Paint()
+      ..color = color.withValues(alpha: 0.25 * opacity)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.2 * scale
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3);
+    final rotorRingPaint = Paint()
+      ..color = color.withValues(alpha: 0.85 * opacity)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.3 * scale;
+    final crosshairPaint = Paint()
       ..color = color.withValues(alpha: 0.6 * opacity)
-      ..strokeWidth = 1.4
-      ..strokeCap = StrokeCap.round;
-    final rotorPaint = Paint()
-      ..color = color.withValues(alpha: 0.28 * opacity)
-      ..style = PaintingStyle.fill;
-    final trailPaint = Paint()
-      ..color = color.withValues(alpha: 0.18 * opacity)
-      ..strokeWidth = 1.2
-      ..strokeCap = StrokeCap.round;
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.9 * scale;
+    final bodyGlowPaint = Paint()
+      ..color = color.withValues(alpha: 0.5 * opacity)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
+    final bodyPaint = Paint()..color = Colors.white.withValues(alpha: 0.95 * opacity);
 
     canvas.save();
     canvas.translate(center.dx, center.dy);
     canvas.rotate(tilt);
+    canvas.scale(scale);
 
-    // Motion trail behind the drone.
-    canvas.drawLine(const Offset(-22, 0), const Offset(-8, 0), trailPaint);
-    canvas.drawLine(const Offset(-18, -3), const Offset(-8, -1), trailPaint);
-    canvas.drawLine(const Offset(-18, 3), const Offset(-8, 1), trailPaint);
-
-    const armLen = 8.0;
+    const armLen = 9.0;
     final armOffsets = [
-      const Offset(-armLen, -armLen * 0.6),
-      const Offset(armLen, -armLen * 0.6),
-      const Offset(-armLen, armLen * 0.6),
-      const Offset(armLen, armLen * 0.6),
+      const Offset(-armLen, -armLen * 0.75),
+      const Offset(armLen, -armLen * 0.75),
+      const Offset(-armLen, armLen * 0.75),
+      const Offset(armLen, armLen * 0.75),
     ];
+
+    // Arms from center to each rotor.
     for (final o in armOffsets) {
       canvas.drawLine(Offset.zero, o, armPaint);
-      // Rotor blur disc, size pulses with progress to suggest spin.
-      final rotorRadius = 3.0 + 0.6 * math.sin(t * 40);
-      canvas.drawCircle(o, rotorRadius.abs() + 2.5, rotorPaint);
     }
 
-    // Body.
-    final bodyRect = RRect.fromRectAndRadius(
-      Rect.fromCenter(center: Offset.zero, width: 12, height: 6),
-      const Radius.circular(2.5),
-    );
-    canvas.drawRRect(bodyRect, bodyPaint);
+    // Rotor rings: outer glow + crisp ring + crosshair, matching the
+    // circular "targeting" rotor look in the reference image.
+    const rotorRadius = 5.0;
+    for (final o in armOffsets) {
+      canvas.drawCircle(o, rotorRadius, rotorGlowPaint);
+      canvas.drawCircle(o, rotorRadius, rotorRingPaint);
+      canvas.drawLine(o + const Offset(-rotorRadius, 0), o + const Offset(rotorRadius, 0), crosshairPaint);
+      canvas.drawLine(o + const Offset(0, -rotorRadius), o + const Offset(0, rotorRadius), crosshairPaint);
+    }
+
+    // Glowing center body — small bright dot with a soft halo, like the
+    // reference image's lit-up core.
+    canvas.drawCircle(Offset.zero, 4.5, bodyGlowPaint);
+    canvas.drawCircle(Offset.zero, 2.2, bodyPaint);
 
     canvas.restore();
   }
@@ -902,6 +919,22 @@ class _FlyingDronePainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _FlyingDronePainter oldDelegate) =>
       oldDelegate.progress != progress || oldDelegate.color != color;
+}
+
+/// Per-drone timing/placement config used by [_FlyingDronePainter] to stagger
+/// the squadron so each drone flies at a different moment, lane, and size.
+class _DroneConfig {
+  final double phaseOffset;
+  final double laneY;
+  final double scale;
+  final double flightSpan;
+
+  const _DroneConfig({
+    required this.phaseOffset,
+    required this.laneY,
+    required this.scale,
+    required this.flightSpan,
+  });
 }
 
 // ---------------- Corner-bracket HUD frame ----------------
@@ -960,106 +993,10 @@ class _HudFrame extends StatelessWidget {
   }
 }
 
-// ---------------- Fleet status instrument card ----------------
-
-class _InstrumentCard extends StatelessWidget {
-  final String label;
-  final int count;
-  final IconData icon;
-  final Color color;
-  final AnimationController controller;
-
-  const _InstrumentCard({
-    required this.label,
-    required this.count,
-    required this.icon,
-    required this.color,
-    required this.controller,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final litTicks = count.clamp(0, 5);
-    return _HudFrame(
-      color: color.withValues(alpha: 0.55),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: AppColors.border),
-        ),
-        child: Column(
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Icon(icon, color: color, size: 17),
-                _ShimmerText(
-                  text: label,
-                  controller: controller,
-                  highlightColor: Colors.white,
-                  style: TextStyle(
-                    color: color,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 1.1,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            _ShimmerText(
-              text: count.toString().padLeft(2, '0'),
-              controller: controller,
-              highlightColor: color,
-              phase: 0.2,
-              style: const TextStyle(
-                color: AppColors.textPrimary,
-                fontSize: 30,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            const SizedBox(height: 9),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(5, (i) {
-                final lit = i < litTicks;
-                return Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 1.5),
-                  width: 9,
-                  height: 3,
-                  decoration: BoxDecoration(
-                    color: lit ? color : AppColors.border,
-                    borderRadius: BorderRadius.circular(1),
-                  ),
-                );
-              }),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 // ---------------- Module card: HUD frame + full-bleed image + tap feedback ----------------
-// The module image now fills the ENTIRE card edge-to-edge (BoxFit.cover),
-// same as the "Stock Management" style reference. Title sits in a bottom
-// gradient scrim on top of the image so it stays readable regardless of
-// what the artwork looks like underneath. On tap, a color tint washes over
-// the image for feedback instead of a background-color swap.
-//
-// NOTE: if a module's source PNG has a lot of built-in transparent padding
-// (e.g. company_details.png), BoxFit.cover may crop into the artwork more
-// aggressively than expected. If that looks wrong for a given icon, the fix
-// is to tight-crop the source PNG (remove the transparent margins) rather
-// than changing the fit here — changing the fit would break the "same box,
-// fully covered" look for every other card.
-//
-// Title text: plain Text (no shimmer) — module card titles were switched
-// off the shimmer effect per request; every other _ShimmerText usage on
-// this screen (header, fleet counters, footer) is unchanged.
+// The module image fills the ENTIRE card edge-to-edge (BoxFit.cover).
+// Per request, NO text/title is rendered on the card anymore — image only,
+// plus the tap color wash and the small status dot for feedback.
 
 class _TapColorCard extends StatefulWidget {
   final String title;
@@ -1130,36 +1067,6 @@ class _TapColorCardState extends State<_TapColorCard> {
                 opacity: _isPressed ? 1 : 0,
                 child: Positioned.fill(
                   child: Container(color: widget.color.withValues(alpha: 0.22)),
-                ),
-              ),
-
-              // ---- Bottom gradient scrim so the title stays readable ----
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
-                child: Container(
-                  padding: const EdgeInsets.only(top: 22, bottom: 9, left: 6, right: 6),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Colors.transparent,
-                        Colors.black.withValues(alpha: 0.75),
-                      ],
-                    ),
-                  ),
-                  child: Text(
-                    widget.title,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 0.3,
-                    ),
-                  ),
                 ),
               ),
 
