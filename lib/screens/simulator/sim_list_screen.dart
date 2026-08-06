@@ -17,39 +17,6 @@ class SimListScreen extends StatefulWidget {
 class _SimListScreenState extends State<SimListScreen> {
   String _searchQuery = '';
   final _searchController = TextEditingController();
-  String _selectedFilter = 'All';
-  final List<String> _filters = ['All', 'Available', 'In Use', 'Under Maintenance'];
-
-  // 🆕 BRANCH FILTER — mirrors the "All Branches / CDA Admin / CDA Ops"
-  // toggle used on the Inventory dashboard. Simulator docs store branch
-  // as a free-text `companyName` field (e.g. "branch1", "Branch 1",
-  // "CDA Admin", "Adambakkam") entered by hand at add-time, so matching
-  // is done via _branchGroup() below instead of an exact string/int
-  // compare.
-  String _selectedBranch = 'All Branches';
-  final List<String> _branches = ['All Branches', 'CDA Admin', 'CDA Ops'];
-
-  // Normalizes a simulator's companyName into 'admin' | 'ops' | 'other'
-  // so branch filtering works regardless of exactly how the field was
-  // typed in (case, spacing, "branch1" vs "CDA Admin" vs "Adambakkam").
-  String _branchGroup(String companyName) {
-    final n = companyName.toLowerCase().replaceAll(' ', '');
-    if (n.contains('admin') || n.contains('branch1') || n.contains('adambakkam')) {
-      return 'admin';
-    }
-    if (n.contains('ops') || n.contains('branch2')) {
-      return 'ops';
-    }
-    return 'other';
-  }
-
-  bool _matchesSelectedBranch(SimulatorModel sim) {
-    if (_selectedBranch == 'All Branches') return true;
-    final group = _branchGroup(sim.companyName);
-    if (_selectedBranch == 'CDA Admin') return group == 'admin';
-    if (_selectedBranch == 'CDA Ops') return group == 'ops';
-    return true;
-  }
 
   // ---- Theme-aware colors: flip between dark/light based on current
   // Theme brightness instead of hardcoded dark-only constants. ----
@@ -185,82 +152,7 @@ class _SimListScreenState extends State<SimListScreen> {
               ),
             ),
           ),
-          // 🆕 BRANCH FILTER CHIPS — All Branches / CDA Admin / CDA Ops
-          SliverToBoxAdapter(
-            child: SizedBox(
-              height: 40,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                itemCount: _branches.length,
-                itemBuilder: (context, index) {
-                  final branch = _branches[index];
-                  final isSelected = _selectedBranch == branch;
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 10),
-                    child: ChoiceChip(
-                      avatar: Icon(
-                        branch == 'All Branches'
-                            ? Icons.apps_rounded
-                            : Icons.location_city_rounded,
-                        size: 14,
-                        color: isSelected ? _pBackground(context) : _pGold(context),
-                      ),
-                      label: Text(branch),
-                      selected: isSelected,
-                      onSelected: (_) => setState(() => _selectedBranch = branch),
-                      selectedColor: _pGold(context),
-                      backgroundColor: _pSurface(context),
-                      labelStyle: GoogleFonts.plusJakartaSans(
-                        color: isSelected ? _pBackground(context) : _pTextSecondary(context),
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(20),
-                        side: BorderSide(color: _pGold(context).withValues(alpha: 0.35)),
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-          ),
-          const SliverToBoxAdapter(child: SizedBox(height: 10)),
-          SliverToBoxAdapter(
-            child: SizedBox(
-              height: 40,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                itemCount: _filters.length,
-                itemBuilder: (context, index) {
-                  final filter = _filters[index];
-                  final isSelected = _selectedFilter == filter;
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 10),
-                    child: ChoiceChip(
-                      label: Text(filter),
-                      selected: isSelected,
-                      onSelected: (_) => setState(() => _selectedFilter = filter),
-                      selectedColor: _pAccent(context),
-                      backgroundColor: _pSurface(context),
-                      labelStyle: GoogleFonts.plusJakartaSans(
-                        color: isSelected ? _pBackground(context) : _pTextSecondary(context),
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(20),
-                        side: BorderSide.none,
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-          ),
-          const SliverToBoxAdapter(child: SizedBox(height: 12)),
+          const SliverToBoxAdapter(child: SizedBox(height: 4)),
           StreamBuilder<QuerySnapshot>(
             stream: _simStream(),
             builder: (context, snapshot) {
@@ -279,8 +171,6 @@ class _SimListScreenState extends State<SimListScreen> {
 
               var sims = snapshot.data!.docs
                   .map((d) => SimulatorModel.fromDocument(d))
-                  .where((s) => _selectedFilter == 'All' || s.status == _selectedFilter)
-                  .where(_matchesSelectedBranch) // 🆕 branch filter
                   .where((s) => _searchQuery.isEmpty ||
                   s.simulatorName.toLowerCase().contains(_searchQuery) ||
                   s.model.toLowerCase().contains(_searchQuery))

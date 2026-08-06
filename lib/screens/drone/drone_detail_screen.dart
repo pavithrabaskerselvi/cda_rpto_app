@@ -5,13 +5,36 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../models/drone_model.dart';
 import '../../config/theme_colors.dart';
+import '../../config/routes.dart';
+import '../../config/drone_document_categories.dart';
 import '../../providers/theme_provider.dart';
-import '../document/documents_screen.dart';
+import '../../widgets/attach_document_button.dart';
 import 'drone_add_screen.dart';
 
 class DroneDetailsScreen extends StatelessWidget {
   final DroneModel drone;
-  const DroneDetailsScreen({super.key, required this.drone});
+
+  /// When set to 'small' or 'medium', the full folder list for that
+  /// size is rendered right here on the details page (no extra
+  /// navigation needed) — e.g. opened by tapping the "Small"/"Medium"
+  /// chip on a drone card in the Drone List screen.
+  final String? documentGroup;
+
+  const DroneDetailsScreen({super.key, required this.drone, this.documentGroup});
+
+  List<DocumentRequirement> get _groupRequirements {
+    switch (documentGroup) {
+      case 'small':
+        return DroneDocCategories.smallRequirements;
+      case 'medium':
+        return DroneDocCategories.mediumRequirements;
+      default:
+        return const [];
+    }
+  }
+
+  String get _groupTitle => documentGroup == 'small' ? 'Small Documents' : 'Medium Documents';
+
 
   Color _statusColor(String status, CompanyColors c) {
     switch (status) {
@@ -59,21 +82,11 @@ class DroneDetailsScreen extends StatelessWidget {
     );
   }
 
-  void _openDocuments(BuildContext context) {
-    Navigator.push(
+  void _openBulkImport(BuildContext context) {
+    Navigator.pushNamed(
       context,
-      MaterialPageRoute(
-        builder: (_) => DocumentsScreen(
-          title: '${drone.droneName} Documents',
-          firestorePath: 'drones/${drone.id}',
-          requirements: const [
-            DocumentRequirement(
-                key: 'registration_certificate', label: 'Registration Certificate'),
-            DocumentRequirement(key: 'insurance', label: 'Insurance'),
-            DocumentRequirement(key: 'manual', label: 'Manual', required: false),
-          ],
-        ),
-      ),
+      AppRoutes.droneBulkImport,
+      arguments: {'droneId': drone.id, 'droneName': drone.droneName},
     );
   }
 
@@ -267,6 +280,19 @@ class DroneDetailsScreen extends StatelessWidget {
             child: ListView(
               padding: const EdgeInsets.all(16),
               children: [
+                if (documentGroup != null) ...[
+                  Text(
+                    _groupTitle,
+                    style: GoogleFonts.plusJakartaSans(
+                        color: c.textPrimary, fontWeight: FontWeight.w700, fontSize: 16),
+                  ),
+                  const SizedBox(height: 10),
+                  _DroneDocumentsSection(
+                    firestorePath: 'drones/${drone.id}',
+                    requirements: _groupRequirements,
+                  ),
+                  const SizedBox(height: 20),
+                ],
                 _rowCard(c, icon: Icons.precision_manufacturing_outlined, label: 'Model', value: drone.model),
                 _rowCard(c, icon: Icons.qr_code_2, label: 'Serial Number', value: drone.serialNumber),
                 _rowCard(c, icon: Icons.category_outlined, label: 'Type', value: drone.type),
@@ -295,16 +321,86 @@ class DroneDetailsScreen extends StatelessWidget {
                 const SizedBox(height: 4),
                 _rowCard(
                   c,
-                  icon: Icons.description_outlined,
-                  label: 'Attachments',
-                  value: 'Documents',
-                  onTap: () => _openDocuments(context),
+                  icon: Icons.drive_folder_upload_outlined,
+                  label: 'Bulk Import',
+                  value: 'Import from a Drive-style folder',
+                  onTap: () => _openBulkImport(context),
                 ),
               ],
             ),
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Loads the drone's saved documents and renders every folder tile for
+/// [requirements] (e.g. all 11 Small folders or all 14 Medium folders)
+/// right inline — no separate page/navigation needed.
+class _DroneDocumentsSection extends StatefulWidget {
+  final String firestorePath;
+  final List<DocumentRequirement> requirements;
+
+  const _DroneDocumentsSection({
+    required this.firestorePath,
+    required this.requirements,
+  });
+
+  @override
+  State<_DroneDocumentsSection> createState() => _DroneDocumentsSectionState();
+}
+
+class _DroneDocumentsSectionState extends State<_DroneDocumentsSection> {
+  late Future<List<AttachedDocument>> _loadFuture;
+  List<AttachedDocument> _current = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadFuture = _fetch();
+  }
+
+  Future<List<AttachedDocument>> _fetch() async {
+    try {
+      final snap = await FirebaseFirestore.instance.doc(widget.firestorePath).get();
+      final raw = snap.data()?['documents'] as List<dynamic>?;
+      if (raw == null) return [];
+      return raw
+          .map((m) => AttachedDocument.fromMap(Map<String, dynamic>.from(m)))
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<List<AttachedDocument>>(
+      future: _loadFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const Padding(
+            padding: EdgeInsets.symmetric(vertical: 24),
+            child: Center(
+              child: CircularProgressIndicator(color: Color(0xFF2DD4BF)),
+            ),
+          );
+        }
+
+        final loadedDocs = snapshot.data ?? [];
+        if (_current.isEmpty && loadedDocs.isNotEmpty) {
+          _current = loadedDocs;
+        }
+
+        return AttachDocumentButton(
+          firestorePath: widget.firestorePath,
+          requirements: widget.requirements,
+          initialDocuments: loadedDocs,
+          allowExtraDocuments: false,
+          onDocumentsChanged: (docs) => setState(() => _current = docs),
+        );
+      },
     );
   }
 }

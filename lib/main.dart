@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -22,17 +20,6 @@ void main() async {
   );
   runApp(const CdaRptoApp());
 }
-
-// Below this width we treat the window as a phone and keep the locked
-// 430px "phone frame" look (matches CDA Inventory). At or above it — i.e.
-// laptop/desktop browser windows — the app uses the real available width
-// instead of being boxed into a tiny phone-shaped column.
-const double _kMobileBreakpoint = 600.0;
-
-// On very wide desktop monitors we still cap the content so it doesn't
-// stretch into an unreadable single line of cards edge-to-edge. Screens
-// between the mobile breakpoint and this cap get the FULL window width.
-const double _kDesktopMaxWidth = 1200.0;
 
 class CdaRptoApp extends StatelessWidget {
   const CdaRptoApp({super.key});
@@ -58,65 +45,10 @@ class CdaRptoApp extends StatelessWidget {
           // Handles routes that need arguments (e.g. /batch-detail needs a
           // batchId). Routes not found here fall back to the `routes` map above.
           onGenerateRoute: AppRoutes.onGenerateRoute,
-          // Responsive shell:
-          //  • width < 600  (phone / narrow mobile web) -> locked 430px
-          //    phone frame with the starfield letterbox either side, same
-          //    as CDA Inventory.
-          //  • 600 <= width <= 1200 (tablet / laptop) -> uses the FULL
-          //    available width, no letterbox, no lock.
-          //  • width > 1200 (large desktop monitor) -> content capped at
-          //    1200px and centered so cards/text don't stretch edge-to-edge.
+          // App fills the full browser window at every size — no
+          // phone-frame lock, no width cap, no letterbox.
           builder: (context, child) {
-            final mq = MediaQuery.of(context);
-            final windowWidth = mq.size.width;
-            final isMobile = windowWidth < _kMobileBreakpoint;
-
-            double contentWidth;
-            if (isMobile) {
-              contentWidth = windowWidth > 430.0 ? 430.0 : windowWidth;
-            } else if (windowWidth > _kDesktopMaxWidth) {
-              contentWidth = _kDesktopMaxWidth;
-            } else {
-              contentWidth = windowWidth; // laptop/tablet: use full width
-            }
-
-            // Only show the decorative blue starfield letterbox when we're
-            // actually boxing the content in (mobile-locked or capped
-            // desktop) — on laptop/tablet widths in between, the app fills
-            // the window so there's no letterbox to draw.
-            final showLetterbox = contentWidth < windowWidth;
-
-            final sizedChild = Center(
-              child: SizedBox(
-                width: contentWidth,
-                height: mq.size.height,
-                child: MediaQuery(
-                  data: mq.copyWith(size: Size(contentWidth, mq.size.height)),
-                  child: ClipRect(child: child!),
-                ),
-              ),
-            );
-
-            if (!showLetterbox) {
-              // Full-bleed: no frame, no gradient background needed.
-              return sizedChild;
-            }
-
-            return Container(
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [Color(0xFF1442C4), Color(0xFF0B2A8A), Color(0xFF1442C4)],
-                ),
-              ),
-              child: Stack(
-                children: [
-                  const Positioned.fill(child: _FrameStarfield()),
-                  sizedChild,
-                ],
-              ),
-            );
+            return child!;
           },
           // `home` is wrapped in a Builder so the `context` used inside
           // onFinished belongs to a widget that's already a descendant of the
@@ -162,63 +94,4 @@ class AuthGate extends StatelessWidget {
       },
     );
   }
-}
-
-/// Gently twinkling stars scattered across the blue letterbox background
-/// behind the phone frame — matches the reference mock's speckled blue
-/// side panels. Purely decorative; doesn't affect the app content itself.
-class _FrameStarfield extends StatefulWidget {
-  const _FrameStarfield();
-
-  @override
-  State<_FrameStarfield> createState() => _FrameStarfieldState();
-}
-
-class _FrameStarfieldState extends State<_FrameStarfield> with SingleTickerProviderStateMixin {
-  late final AnimationController _ctrl = AnimationController(
-    vsync: this,
-    duration: const Duration(seconds: 4),
-  )..repeat(reverse: true);
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _ctrl,
-      builder: (context, _) {
-        return CustomPaint(
-          painter: _FrameStarfieldPainter(twinkle: _ctrl.value),
-          size: Size.infinite,
-        );
-      },
-    );
-  }
-}
-
-class _FrameStarfieldPainter extends CustomPainter {
-  final double twinkle;
-  _FrameStarfieldPainter({required this.twinkle});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final rnd = math.Random(11); // fixed seed = stable star layout
-    for (var i = 0; i < 140; i++) {
-      final dx = rnd.nextDouble() * size.width;
-      final dy = rnd.nextDouble() * size.height;
-      final baseR = rnd.nextDouble() * 1.4 + 0.4;
-      // Each star drifts opacity slightly out of phase for a subtle twinkle.
-      final phase = (i % 7) / 7;
-      final alpha = 0.25 + 0.35 * (0.5 + 0.5 * math.sin((twinkle + phase) * 2 * math.pi));
-      final paint = Paint()..color = Colors.white.withValues(alpha: alpha);
-      canvas.drawCircle(Offset(dx, dy), baseR, paint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _FrameStarfieldPainter oldDelegate) => oldDelegate.twinkle != twinkle;
 }

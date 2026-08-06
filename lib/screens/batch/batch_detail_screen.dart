@@ -7,6 +7,11 @@ import '../student/student_add_screen.dart';
 import 'general_category/attendance_screen.dart';
 import 'general_category/counseling_screen.dart';
 import 'general_category/logbook_screen.dart';
+import 'general_category/candidate_list_screen.dart';
+import 'general_category/schedule_screen.dart';
+import 'general_category/training_record_screen.dart';
+import 'general_category/batch_photos_screen.dart';
+import 'general_category/master_sheet_screen.dart';
 
 class BatchDetailScreen extends StatefulWidget {
   final String batchId;
@@ -620,60 +625,7 @@ class _BatchDetailScreenState extends State<BatchDetailScreen>
                 ),
               ),
               const SizedBox(height: 10),
-              Row(
-                children: [
-                  Expanded(
-                    child: _quickActionButton(
-                      context,
-                      icon: Icons.event_available_outlined,
-                      label: 'Attendance',
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => AttendanceScreen(
-                            batchId: widget.batchId,
-                            batchName: data['batchName'] ?? 'Batch',
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: _quickActionButton(
-                      context,
-                      icon: Icons.menu_book_outlined,
-                      label: 'Logbook',
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => LogbookScreen(
-                            batchId: widget.batchId,
-                            batchName: data['batchName'] ?? 'Batch',
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: _quickActionButton(
-                      context,
-                      icon: Icons.psychology_outlined,
-                      label: 'Counseling',
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => CounselingScreen(
-                            batchId: widget.batchId,
-                            batchName: data['batchName'] ?? 'Batch',
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+              _buildQuickActionsGrid(context, data),
               const SizedBox(height: 24),
 
               TextFormField(
@@ -1294,6 +1246,97 @@ class _BatchDetailScreenState extends State<BatchDetailScreen>
     }
   }
 
+  /// All quick-action folders for a batch, matching the Drive structure:
+  /// 1.list of candidates, 2.Schedule, 3.Attendance, 4.Training record,
+  /// 5.logbook, 6.Student wise folder (the Students tab), 7.Batch Photos,
+  /// 8.Master sheet. Counseling isn't a Drive folder but stays here since
+  /// it was already part of this screen.
+  Widget _buildQuickActionsGrid(BuildContext context, Map<String, dynamic> data) {
+    final batchName = data['batchName'] ?? 'Batch';
+
+    final actions = <_QuickAction>[
+      _QuickAction(
+        icon: Icons.badge_outlined,
+        label: 'Candidates',
+        builder: (_) => CandidateListScreen(batchId: widget.batchId, batchName: batchName),
+      ),
+      _QuickAction(
+        icon: Icons.calendar_month_outlined,
+        label: 'Schedule',
+        builder: (_) => ScheduleScreen(batchId: widget.batchId, batchName: batchName),
+      ),
+      _QuickAction(
+        icon: Icons.event_available_outlined,
+        label: 'Attendance',
+        builder: (_) => AttendanceScreen(batchId: widget.batchId, batchName: batchName),
+      ),
+      _QuickAction(
+        icon: Icons.flight_takeoff_outlined,
+        label: 'Training Record',
+        builder: (_) => TrainingRecordScreen(batchId: widget.batchId, batchName: batchName),
+      ),
+      _QuickAction(
+        icon: Icons.menu_book_outlined,
+        label: 'Logbook',
+        builder: (_) => LogbookScreen(batchId: widget.batchId, batchName: batchName),
+      ),
+      _QuickAction(
+        icon: Icons.psychology_outlined,
+        label: 'Counseling',
+        builder: (_) => CounselingScreen(batchId: widget.batchId, batchName: batchName),
+      ),
+      _QuickAction(
+        icon: Icons.photo_library_outlined,
+        label: 'Batch Photos',
+        builder: (_) => BatchPhotosScreen(batchId: widget.batchId, batchName: batchName),
+      ),
+      _QuickAction(
+        icon: Icons.grid_on_outlined,
+        label: 'Master Sheet',
+        builder: (_) => MasterSheetScreen(batchId: widget.batchId, batchName: batchName),
+      ),
+    ];
+
+    // Lay the actions out 3-per-row, same visual style as before, without
+    // needing to hand-write each Row/Expanded/SizedBox trio.
+    final rows = <Widget>[];
+    for (var i = 0; i < actions.length; i += 3) {
+      final chunk = actions.sublist(i, i + 3 > actions.length ? actions.length : i + 3);
+      rows.add(
+        Row(
+          children: [
+            for (var j = 0; j < chunk.length; j++) ...[
+              if (j > 0) const SizedBox(width: 10),
+              Expanded(
+                child: _quickActionButton(
+                  context,
+                  icon: chunk[j].icon,
+                  label: chunk[j].label,
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: chunk[j].builder),
+                  ),
+                ),
+              ),
+            ],
+            // Pad the last row so buttons stay a consistent width even
+            // when it has fewer than 3 items.
+            if (chunk.length < 3) ...[
+              for (var k = 0; k < 3 - chunk.length; k++) ...[
+                const SizedBox(width: 10),
+                const Expanded(child: SizedBox()),
+              ],
+            ],
+          ],
+        ),
+      );
+      rows.add(const SizedBox(height: 10));
+    }
+    if (rows.isNotEmpty) rows.removeLast();
+
+    return Column(children: rows);
+  }
+
   Widget _quickActionButton(
       BuildContext context, {
         required IconData icon,
@@ -1329,4 +1372,17 @@ class _BatchDetailScreenState extends State<BatchDetailScreen>
       ),
     );
   }
+}
+
+/// Simple value holder for one entry in the Quick Actions grid.
+class _QuickAction {
+  final IconData icon;
+  final String label;
+  final WidgetBuilder builder;
+
+  const _QuickAction({
+    required this.icon,
+    required this.label,
+    required this.builder,
+  });
 }

@@ -16,8 +16,6 @@ import '../../config/theme_colors.dart';
 
 const Color _pAccent = Color(0xFF2DD4BF);
 
-const List<String> _fixedDocTypes = ['Aadhar / ID Proof', 'Medical Certificate', 'Photo'];
-
 /// Outcome of one file in a bulk upload run — shown in the results
 /// summary sheet after [StudentDocumentsTab._bulkUploadDocuments]
 /// finishes.
@@ -445,16 +443,7 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
   }
 
   List<List<String>> _buildExportRows(List<QueryDocumentSnapshot> docs) {
-    final byTitle = {for (var d in docs) d['title'] as String: d};
-    final rows = <List<String>>[];
-
-    for (final type in _fixedDocTypes) {
-      rows.add(_rowFor(type, byTitle[type]));
-    }
-    for (final d in docs.where((d) => !_fixedDocTypes.contains(d['title']))) {
-      rows.add(_rowFor(d['title'] as String, d));
-    }
-    return rows;
+    return docs.map((d) => _rowFor(d['title'] as String, d)).toList();
   }
 
   List<String> _rowFor(String title, QueryDocumentSnapshot? doc) {
@@ -540,7 +529,6 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
             }
 
             final allDocs = snapshot.data!.docs;
-            final docs = {for (var d in allDocs) d['title'] as String: d};
 
             return ListView(
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 90),
@@ -562,6 +550,13 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                               style: GoogleFonts.plusJakartaSans(
                                   color: _pAccent, fontWeight: FontWeight.w600)),
                         ),
+                        TextButton.icon(
+                          onPressed: _uploading ? null : _addCustomDocument,
+                          icon: const Icon(Icons.add, color: _pAccent, size: 18),
+                          label: Text('Add',
+                              style: GoogleFonts.plusJakartaSans(
+                                  color: _pAccent, fontWeight: FontWeight.w600)),
+                        ),
                         IconButton(
                           icon: const Icon(Icons.ios_share, color: _pAccent),
                           tooltip: 'Export',
@@ -571,44 +566,8 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 6),
-                Text('Required Documents',
-                    style: GoogleFonts.plusJakartaSans(
-                        color: ThemeColors.textPrimary(context),
-                        fontWeight: FontWeight.w700,
-                        fontSize: 15)),
-                const SizedBox(height: 10),
-                ..._fixedDocTypes.map((type) {
-                  final doc = docs[type];
-                  return _docTile(
-                    context,
-                    title: type,
-                    doc: doc,
-                    onUpload: () => _uploadDocument(title: type, existingDocId: doc?.id),
-                  );
-                }),
-                const SizedBox(height: 20),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text('Additional Documents',
-                        style: GoogleFonts.plusJakartaSans(
-                            color: ThemeColors.textPrimary(context),
-                            fontWeight: FontWeight.w700,
-                            fontSize: 15)),
-                    TextButton.icon(
-                      onPressed: _uploading ? null : _addCustomDocument,
-                      icon: const Icon(Icons.add, color: _pAccent, size: 18),
-                      label: Text('Add',
-                          style: GoogleFonts.plusJakartaSans(
-                              color: _pAccent, fontWeight: FontWeight.w600)),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                ...allDocs
-                    .where((d) => !_fixedDocTypes.contains(d['title']))
-                    .map((doc) => _docTile(context,
+                const SizedBox(height: 16),
+                ...allDocs.map((doc) => _docTile(context,
                     title: doc['title'] as String, doc: doc, onUpload: null)),
               ],
             );

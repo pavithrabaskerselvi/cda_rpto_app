@@ -21,7 +21,7 @@ dependencies:
     # File / Image picking (documents, camera etc.)
     file_picker: ^8.1.4
     image_picker: ^1.1.2
-
+    syncfusion_flutter_pdfviewer: ^27.1.55
     # QR / Barcode (future scope - drone/equipment tracking)
     mobile_scanner: ^6.0.2
     qr_flutter: ^4.1.0
@@ -71,3 +71,4 @@ flutter:
         - lib/assets/images/student.jpeg
         - lib/assets/images/batch_list.jpeg
         - lib/assets/images/splash_screen.png
+        - lib/assets/images/login_page.png

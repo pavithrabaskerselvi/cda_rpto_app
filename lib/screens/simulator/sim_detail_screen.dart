@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../models/simulator_model.dart';
 import '../document/documents_screen.dart';
+import 'sim_add_screen.dart';
 
 class SimDetailScreen extends StatefulWidget {
   final SimulatorModel simulator;
@@ -52,6 +53,21 @@ class _SimDetailScreenState extends State<SimDetailScreen> {
         return _pAmber(context);
       default:
         return _pDanger(context);
+    }
+  }
+
+  // 🆕 Opens the Add/Edit form pre-filled with this simulator. If the save
+  // goes through, pop this detail screen too so the caller (the simulator
+  // list, which streams from Firestore) shows the fresh data right away.
+  Future<void> _editSimulator() async {
+    final updated = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => SimAddScreen(existingSimulator: widget.simulator),
+      ),
+    );
+    if (updated == true && mounted) {
+      Navigator.pop(context);
     }
   }
 
@@ -169,6 +185,10 @@ class _SimDetailScreenState extends State<SimDetailScreen> {
                 color: _pTextPrimary(context), fontWeight: FontWeight.w700, fontSize: 18)),
         iconTheme: IconThemeData(color: _pTextPrimary(context)),
         actions: [
+          IconButton(
+            icon: Icon(Icons.edit_outlined, color: _pAccent(context)),
+            onPressed: _isDeleting ? null : _editSimulator,
+          ),
           IconButton(
             icon: _isDeleting
                 ? SizedBox(

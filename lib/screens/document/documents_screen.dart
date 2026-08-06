@@ -1,14 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
+import '../../config/theme_colors.dart';
+import '../../providers/theme_provider.dart';
 import '../../widgets/attach_document_button.dart';
 
 export '../../widgets/attach_document_button.dart'
     show DocumentRequirement, AttachedDocument;
-
-// ---- Design constants (match your app theme) ----
-const Color _kNavy = Color(0xFF0B1220);
-const Color _kSurface = Color(0xFF141B2D);
-const Color _kTeal = Color(0xFF14B8A6);
 
 /// Full-screen "Documents" page. Push this from any detail screen
 /// (drone detail, company detail, pilot detail, etc.) by passing the
@@ -83,91 +82,163 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: _kNavy,
-      appBar: AppBar(
-        backgroundColor: _kNavy,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () {
-            // Force-highlight any missing required docs before leaving,
-            // but still allow navigation back either way.
-            _docsKey.currentState?.validate();
-            Navigator.of(context).pop(_current);
-          },
+  void _goBack() {
+    _docsKey.currentState?.validate();
+    Navigator.of(context).pop(_current);
+  }
+
+  Widget _buildThemeToggle(bool isDark, CompanyColors c) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(Icons.wb_sunny_outlined,
+            size: 18, color: isDark ? c.textSecondary : c.accent),
+        Switch(
+          value: isDark,
+          activeColor: c.accent,
+          onChanged: (val) => context.read<ThemeProvider>().toggleTheme(val),
         ),
-        title: Text(
-          widget.title,
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.w600,
-          ),
+        Icon(Icons.nightlight_round,
+            size: 18, color: isDark ? c.accent : c.textSecondary),
+      ],
+    );
+  }
+
+  // ---- gradient hero header, matching the Drone Details premium style ----
+  Widget _header(BuildContext context, bool isDark, CompanyColors c) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(20, 50, 20, 24),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            c.gold.withValues(alpha: 0.18),
+            c.accent.withValues(alpha: 0.12),
+            c.background,
+          ],
         ),
       ),
-      body: FutureBuilder<List<AttachedDocument>>(
-        future: _loadFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState != ConnectionState.done) {
-            return const Center(
-              child: CircularProgressIndicator(color: _kTeal),
-            );
-          }
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              IconButton(
+                padding: EdgeInsets.zero,
+                icon: Icon(Icons.arrow_back, color: c.textPrimary),
+                onPressed: _goBack,
+              ),
+              const Spacer(),
+              _buildThemeToggle(isDark, c),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            widget.title,
+            style: GoogleFonts.plusJakartaSans(
+              color: c.textPrimary,
+              fontSize: 26,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.2,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              Icon(Icons.folder_outlined, size: 15, color: c.textSecondary),
+              const SizedBox(width: 6),
+              Text(
+                '${_current.length} file${_current.length == 1 ? '' : 's'} attached',
+                style: GoogleFonts.plusJakartaSans(
+                  color: c.textSecondary,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 
-          final loadedDocs = snapshot.data ?? [];
-          if (_current.isEmpty && loadedDocs.isNotEmpty) {
-            _current = loadedDocs;
-          }
+  @override
+  Widget build(BuildContext context) {
+    final isDark = context.watch<ThemeProvider>().isDarkMode;
+    final c = CompanyColors.of(isDark);
 
-          return Padding(
-            padding: const EdgeInsets.all(16),
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (!_valid && widget.requirements.isNotEmpty)
-                    Container(
-                      margin: const EdgeInsets.only(bottom: 12),
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: _kSurface,
-                        borderRadius: BorderRadius.circular(8),
-                        border:
-                        Border.all(color: Colors.redAccent.withOpacity(0.5)),
-                      ),
-                      child: const Row(
-                        children: [
-                          Icon(Icons.error_outline,
-                              color: Colors.redAccent, size: 18),
-                          SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              'Some required documents are missing.',
-                              style:
-                              TextStyle(color: Colors.redAccent, fontSize: 13),
-                            ),
+    return WillPopScope(
+      onWillPop: () async {
+        _goBack();
+        return false;
+      },
+      child: Scaffold(
+        backgroundColor: c.background,
+        body: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _header(context, isDark, c),
+            Expanded(
+              child: FutureBuilder<List<AttachedDocument>>(
+                future: _loadFuture,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState != ConnectionState.done) {
+                    return Center(
+                      child: CircularProgressIndicator(color: c.accent),
+                    );
+                  }
+
+                  final loadedDocs = snapshot.data ?? [];
+                  if (_current.isEmpty && loadedDocs.isNotEmpty) {
+                    _current = loadedDocs;
+                  }
+
+                  return ListView(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+                    children: [
+                      if (!_valid && widget.requirements.isNotEmpty)
+                        Container(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: c.danger.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: c.danger.withValues(alpha: 0.4)),
                           ),
-                        ],
+                          child: Row(
+                            children: [
+                              Icon(Icons.error_outline, color: c.danger, size: 18),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'Some required documents are missing.',
+                                  style: GoogleFonts.plusJakartaSans(
+                                      color: c.danger, fontSize: 13, fontWeight: FontWeight.w500),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      AttachDocumentButton(
+                        key: _docsKey,
+                        firestorePath: widget.firestorePath,
+                        firestoreField: widget.firestoreField,
+                        requirements: widget.requirements,
+                        initialDocuments: loadedDocs,
+                        allowExtraDocuments: widget.allowExtraDocuments,
+                        onDocumentsChanged: (docs) =>
+                            setState(() => _current = docs),
+                        onValidityChanged: (valid) => setState(() => _valid = valid),
                       ),
-                    ),
-                  AttachDocumentButton(
-                    key: _docsKey,
-                    firestorePath: widget.firestorePath,
-                    firestoreField: widget.firestoreField,
-                    requirements: widget.requirements,
-                    initialDocuments: loadedDocs,
-                    allowExtraDocuments: widget.allowExtraDocuments,
-                    onDocumentsChanged: (docs) =>
-                        setState(() => _current = docs),
-                    onValidityChanged: (valid) => setState(() => _valid = valid),
-                  ),
-                ],
+                    ],
+                  );
+                },
               ),
             ),
-          );
-        },
+          ],
+        ),
       ),
     );
   }

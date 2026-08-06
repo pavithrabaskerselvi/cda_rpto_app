@@ -1,9 +1,15 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import '../../models/simulator_model.dart';
 import '../../widgets/attach_document_button.dart';
 
 class SimAddScreen extends StatefulWidget {
-  const SimAddScreen({super.key});
+  // 🆕 When non-null, the screen opens in "Edit" mode, prefilled with this
+  // simulator's data. Saving updates the existing Firestore doc instead of
+  // creating a new one.
+  final SimulatorModel? existingSimulator;
+
+  const SimAddScreen({super.key, this.existingSimulator});
 
   @override
   State<SimAddScreen> createState() => _SimAddScreenState();
@@ -21,8 +27,36 @@ class _SimAddScreenState extends State<SimAddScreen> {
   String? _selectedCompanyId;
   String? _selectedCompanyName;
 
+  bool get _isEditing => widget.existingSimulator != null;
+
   // --- Documents attached locally until the simulator is saved ---
+  // (Only used in "add" mode — see note near the Documents section below.)
   List<AttachedDocument> _documents = [];
+
+  @override
+  void initState() {
+    super.initState();
+    final existing = widget.existingSimulator;
+    if (existing != null) {
+      _nameController.text = existing.simulatorName;
+      _modelController.text = existing.model;
+      _serialController.text = existing.serialNumber;
+      _status = existing.status;
+      _selectedCompanyName = existing.companyName;
+      // companyId isn't guaranteed to be exposed on the model, so fetch it
+      // straight from the document to correctly preselect the dropdown.
+      FirebaseFirestore.instance
+          .collection('simulators')
+          .doc(existing.id)
+          .get()
+          .then((doc) {
+        final data = doc.data();
+        if (mounted && data != null) {
+          setState(() => _selectedCompanyId = data['companyId'] as String?);
+        }
+      });
+    }
+  }
 
   // ---- Theme-aware colors instead of hardcoded kNavy/kSurface constants ----
   bool _isDark(BuildContext c) => Theme.of(c).brightness == Brightness.dark;
@@ -72,7 +106,12 @@ class _SimAddScreenState extends State<SimAddScreen> {
     final hasDocuments = _documents.isNotEmpty;
 
     // Nothing at all filled in and no document attached -> block save.
-    if (!hasName && !hasModel && !hasSerial && !hasCompany && !hasDocuments) {
+    if (!_isEditing &&
+        !hasName &&
+        !hasModel &&
+        !hasSerial &&
+        !hasCompany &&
+        !hasDocuments) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text('Please fill at least one field or attach a document'),
@@ -84,22 +123,46 @@ class _SimAddScreenState extends State<SimAddScreen> {
 
     setState(() => _isSaving = true);
     try {
-      await FirebaseFirestore.instance.collection('simulators').add({
-        'simulatorName': _nameController.text.trim(),
-        'model': _modelController.text.trim(),
-        'serialNumber': _serialController.text.trim(),
-        'companyId': _selectedCompanyId,
-        'companyName': _selectedCompanyName,
-        'status': _status,
-        'createdAt': FieldValue.serverTimestamp(),
-        'documents': _documents.map((d) => d.toMap()).toList(),
-      });
+      if (_isEditing) {
+        // update() only touches the fields listed here, so any existing
+        // 'documents' array on the doc is left completely untouched.
+        await FirebaseFirestore.instance
+            .collection('simulators')
+            .doc(widget.existingSimulator!.id)
+            .update({
+          'simulatorName': _nameController.text.trim(),
+          'model': _modelController.text.trim(),
+          'serialNumber': _serialController.text.trim(),
+          'companyId': _selectedCompanyId,
+          'companyName': _selectedCompanyName,
+          'status': _status,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: const Text('Simulator added successfully'), backgroundColor: _green(context)),
-        );
-        Navigator.pop(context);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: const Text('Simulator updated'), backgroundColor: _green(context)),
+          );
+          Navigator.pop(context, true);
+        }
+      } else {
+        await FirebaseFirestore.instance.collection('simulators').add({
+          'simulatorName': _nameController.text.trim(),
+          'model': _modelController.text.trim(),
+          'serialNumber': _serialController.text.trim(),
+          'companyId': _selectedCompanyId,
+          'companyName': _selectedCompanyName,
+          'status': _status,
+          'createdAt': FieldValue.serverTimestamp(),
+          'documents': _documents.map((d) => d.toMap()).toList(),
+        });
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: const Text('Simulator added successfully'), backgroundColor: _green(context)),
+          );
+          Navigator.pop(context, true);
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -126,7 +189,8 @@ class _SimAddScreenState extends State<SimAddScreen> {
       backgroundColor: _bg(context),
       appBar: AppBar(
         backgroundColor: _bg(context),
-        title: Text('Add Simulator', style: TextStyle(color: _textPrimary(context))),
+        title: Text(_isEditing ? 'Edit Simulator' : 'Add Simulator',
+            style: TextStyle(color: _textPrimary(context))),
         iconTheme: IconThemeData(color: _textPrimary(context)),
       ),
       body: Form(
@@ -198,20 +262,27 @@ class _SimAddScreenState extends State<SimAddScreen> {
             ),
             const SizedBox(height: 16),
 
-            _buildLabel(context, 'Documents'),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: _surface(context),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: _textMuted(context).withOpacity(0.15)),
+            // Documents are only editable from the Add flow here. In Edit
+            // mode we deliberately leave the existing 'documents' array on
+            // the Firestore doc untouched (see _saveSimulator), so we don't
+            // show an attach control that could look like it holds the
+            // current attachments when it doesn't.
+            if (!_isEditing) ...[
+              _buildLabel(context, 'Documents'),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: _surface(context),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: _textMuted(context).withOpacity(0.15)),
+                ),
+                child: AttachDocumentButton(
+                  initialDocuments: _documents,
+                  onDocumentsChanged: (docs) => setState(() => _documents = docs),
+                ),
               ),
-              child: AttachDocumentButton(
-                initialDocuments: _documents,
-                onDocumentsChanged: (docs) => setState(() => _documents = docs),
-              ),
-            ),
-            const SizedBox(height: 16),
+              const SizedBox(height: 16),
+            ],
 
             _buildLabel(context, 'Status'),
             Row(
@@ -248,7 +319,7 @@ class _SimAddScreenState extends State<SimAddScreen> {
                   width: 20,
                   child: CircularProgressIndicator(color: _bg(context), strokeWidth: 2),
                 )
-                    : Text('Add Simulator',
+                    : Text(_isEditing ? 'Save Changes' : 'Add Simulator',
                     style: TextStyle(color: _bg(context), fontWeight: FontWeight.w600)),
               ),
             ),

@@ -10,6 +10,8 @@ import '../screens/batch/batch_detail_screen.dart';
 import '../screens/batch/bulk_batch_setup_screen.dart';
 import '../screens/import/bulk_import_screen.dart';
 import '../controllers/bulk_import_controller.dart';
+import '../screens/import/drone_bulk_import_screen.dart';
+import '../controllers/drone_bulk_import_controller.dart';
 
 class AppRoutes {
   static const String login = '/login';
@@ -41,7 +43,7 @@ class AppRoutes {
   static const String batchDetail = '/batch-detail';
   static const String bulkBatchSetup = '/bulk-batch-setup';
 
-  // Bulk Import
+  // Bulk Import (student documents)
   // NOTE: intentionally NOT in the `routes` map below — it needs an
   // optional argument (batchName) to support "import for this batch
   // only", and the plain `routes` map has no access to
@@ -49,6 +51,16 @@ class AppRoutes {
   // passing a String batchName if you want it scoped, or null/omitted
   // to import across all batches.
   static const String bulkImport = '/bulk-import';
+
+  // Bulk Import (drone documents)
+  // Same reasoning as above — needs arguments, so it's handled in
+  // onGenerateRoute. Navigate with:
+  //   Navigator.pushNamed(context, AppRoutes.droneBulkImport,
+  //     arguments: {'droneId': drone.id, 'droneName': drone.droneName});
+  // for a single-drone import scoped to that drone, or with no
+  // arguments (or null) for a multi-drone import across a picked root
+  // folder.
+  static const String droneBulkImport = '/drone-bulk-import';
 
   static Map<String, WidgetBuilder> get routes {
     return {
@@ -91,6 +103,25 @@ class AppRoutes {
             create: (_) => BulkImportController(batchNameFilter: batchName),
             dispose: (_, controller) => controller.dispose(),
             child: BulkImportScreen(batchName: batchName),
+          ),
+        );
+
+      case droneBulkImport:
+      // Optional Map<String, String> {'droneId', 'droneName'} to scope
+      // the import to one drone (single-drone mode). Pass nothing /
+      // null for a multi-drone import across every drone folder under
+      // the picked root.
+        final args = settings.arguments as Map?;
+        final droneId = args?['droneId'] as String?;
+        final droneName = args?['droneName'] as String?;
+        return MaterialPageRoute(
+          builder: (_) => Provider<DroneBulkImportController>(
+            create: (_) => DroneBulkImportController(
+              singleDroneId: droneId,
+              singleDroneName: droneName,
+            ),
+            dispose: (_, controller) => controller.dispose(),
+            child: DroneBulkImportScreen(droneName: droneName),
           ),
         );
 
