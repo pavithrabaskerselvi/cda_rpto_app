@@ -44,11 +44,23 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   int _navIndex = 0;
 
-  // Dark navy used for all header text/icons so everything stays clearly
-  // readable against the light sky-blue gradient background — the theme's
-  // default AppColors.textSecondary is a light gray meant for dark
-  // backdrops and washes out here.
+  // Dark navy used for text/icons that sit on the WHITE body area below the
+  // header (e.g. the "CONTROL MODULES" eyebrow) — matches the navy CDA uses
+  // in its own site's body copy.
   static const Color _headerText = Color(0xFF0A2540);
+
+  // White/near-white used for text/icons that sit INSIDE the navy header
+  // band, mirroring chennaidroneacademy.com's dark-navy hero with white
+  // headline text over it.
+  static const Color _headerOnDark = Colors.white;
+  static const Color _headerOnDarkMuted = Color(0xFFC7D2E8);
+
+  // The site's hero uses a dark-navy-to-royal-blue diagonal wash — reused
+  // here for the dashboard header band.
+  static const List<Color> _heroNavy = [
+    Color(0xFF0A1628),
+    Color(0xFF1B3B7A),
+  ];
 
   // Glowing electric-blue used for the flying-drone animation — matches
   // the reference "targeting HUD" quadcopter look: X-shaped arms, circular
@@ -168,26 +180,20 @@ class _DashboardScreenState extends State<DashboardScreen>
         textTheme: nunitoTheme,
         primaryTextTheme: nunitoTheme,
       ),
-      // ---------- Page-wide gradient backdrop ----------
-      // Wraps the whole Scaffold so the gradient shows through everywhere,
+      // ---------- Page-wide white backdrop ----------
+      // Wraps the whole Scaffold so the background shows through everywhere,
       // including behind the AppBar-less header, the scrollable body, and
       // the floating bottom nav bar. The Scaffold below is made transparent
-      // so this gradient is what's actually visible.
+      // so this is what's actually visible — a clean white page in the
+      // style of the chennaidroneacademy.com site, with a dark-navy hero
+      // band for the header (matching the site's navy hero banner) and the
+      // CDA blue/teal used as accent (icons, shimmer highlights).
       child: Container(
         decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            // Original two-tone sky: a single light sky blue fading
-            // straight down into one deeper blue base — no middle band.
-            colors: [
-              Color(0xFF8EC9F0), // pale sky blue
-              Color(0xFF1D5C99), // deeper blue base
-            ],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
+          color: Colors.white,
         ),
         child: Scaffold(
-          // Transparent so the Container's gradient behind it shows through
+          // Transparent so the Container's white background shows through
           // instead of being covered by the Scaffold's default background.
           backgroundColor: Colors.transparent,
           // ---------- Left side navigation drawer: all modules + logout ----------
@@ -209,14 +215,11 @@ class _DashboardScreenState extends State<DashboardScreen>
                     Container(
                       width: double.infinity,
                       padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
-                      decoration: BoxDecoration(
+                      decoration: const BoxDecoration(
                         gradient: LinearGradient(
-                          colors: [
-                            AppColors.blue.withValues(alpha: 0.22),
-                            AppColors.blue.withValues(alpha: 0.0),
-                          ],
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
+                          colors: _heroNavy,
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
                         ),
                       ),
                       child: Stack(
@@ -226,7 +229,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                           // banking slightly, fading in/out at the edges, then
                           // pausing before the next pass. Drawn big and bold, with
                           // a glowing electric-blue "targeting HUD" look, so the
-                          // pair reads clearly against the sky.
+                          // pair reads clearly against the navy backdrop.
                           Positioned.fill(
                             child: AnimatedBuilder(
                               animation: _droneController,
@@ -258,7 +261,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                                           child: const Padding(
                                             padding: EdgeInsets.only(right: 4),
                                             child: Icon(Icons.menu_rounded,
-                                                color: _headerText, size: 22),
+                                                color: _headerOnDark, size: 22),
                                           ),
                                         ),
                                       ),
@@ -292,7 +295,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                                                 controller: _pulseController,
                                                 highlightColor: AppColors.green,
                                                 style: const TextStyle(
-                                                  color: _headerText,
+                                                  color: _headerOnDark,
                                                   fontSize: 11,
                                                   fontWeight: FontWeight.w700,
                                                   letterSpacing: 1.4,
@@ -305,7 +308,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                                     ],
                                   ),
                                   IconButton(
-                                    icon: const Icon(Icons.logout, color: _headerText, size: 20),
+                                    icon: const Icon(Icons.logout, color: _headerOnDark, size: 20),
                                     onPressed: () => AuthService.logout(),
                                   ),
                                 ],
@@ -327,7 +330,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                                               size: const Size(96, 96),
                                               painter: _RadarSweepPainter(
                                                 progress: _radarController.value,
-                                                ringColor: AppColors.blue,
+                                                ringColor: Colors.white,
                                                 sweepColor: AppColors.teal,
                                               ),
                                             ),
@@ -344,7 +347,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                                               ),
                                               boxShadow: [
                                                 BoxShadow(
-                                                  color: AppColors.blue.withValues(alpha: 0.25),
+                                                  color: Colors.black.withValues(alpha: 0.25),
                                                   blurRadius: 14,
                                                   spreadRadius: 1,
                                                 ),
@@ -375,9 +378,9 @@ class _DashboardScreenState extends State<DashboardScreen>
                                     _ShimmerText(
                                       text: 'CHENNAI DRONE ACADEMY',
                                       controller: _pulseController,
-                                      highlightColor: AppColors.blue,
+                                      highlightColor: AppColors.teal,
                                       style: const TextStyle(
-                                        color: AppColors.textPrimary,
+                                        color: _headerOnDark,
                                         fontSize: 22,
                                         fontWeight: FontWeight.w800,
                                       ),
@@ -386,10 +389,10 @@ class _DashboardScreenState extends State<DashboardScreen>
                                     _ShimmerText(
                                       text: 'SKYLYNK UNMANNED SYSTEMS PVT.LTD',
                                       controller: _pulseController,
-                                      highlightColor: AppColors.blue,
+                                      highlightColor: AppColors.teal,
                                       phase: 0.15,
                                       style: const TextStyle(
-                                        color: _headerText,
+                                        color: _headerOnDarkMuted,
                                         fontSize: 12,
                                         fontWeight: FontWeight.w700,
                                         letterSpacing: 2,
@@ -409,7 +412,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                                     controller: _pulseController,
                                     phase: 0.3,
                                     style: const TextStyle(
-                                      color: _headerText,
+                                      color: _headerOnDark,
                                       fontSize: 14.5,
                                       fontWeight: FontWeight.w600,
                                     ),
@@ -420,26 +423,26 @@ class _DashboardScreenState extends State<DashboardScreen>
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  const Icon(Icons.calendar_today_outlined, size: 14, color: _headerText),
+                                  const Icon(Icons.calendar_today_outlined, size: 14, color: _headerOnDarkMuted),
                                   const SizedBox(width: 6),
                                   _ShimmerText(
                                     text: _todayLabel(),
                                     controller: _pulseController,
                                     phase: 0.45,
                                     style: const TextStyle(
-                                      color: _headerText,
+                                      color: _headerOnDarkMuted,
                                       fontSize: 13,
                                     ),
                                   ),
                                   const SizedBox(width: 14),
-                                  const Icon(Icons.access_time, size: 14, color: _headerText),
+                                  const Icon(Icons.access_time, size: 14, color: _headerOnDarkMuted),
                                   const SizedBox(width: 6),
                                   _ShimmerText(
                                     text: _timeLabel(),
                                     controller: _pulseController,
                                     phase: 0.6,
                                     style: const TextStyle(
-                                      color: _headerText,
+                                      color: _headerOnDarkMuted,
                                       fontSize: 13,
                                       fontFeatures: [FontFeature.tabularFigures()],
                                     ),
@@ -472,7 +475,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                             children: [
                               _TapColorCard(
                                 title: 'Company Details',
-                                imagePath: 'lib/assets/images/company_details.jpeg',
+                                imagePath: 'lib/assets/images/company_details.png',
                                 color: AppColors.blue,
                                 controller: _pulseController,
                                 onTap: () => Navigator.push(context,
@@ -480,7 +483,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                               ),
                               _TapColorCard(
                                 title: 'Instructors',
-                                imagePath: 'lib/assets/images/instructor.jpeg',
+                                imagePath: 'lib/assets/images/instructor.png',
                                 color: AppColors.teal,
                                 controller: _pulseController,
                                 onTap: () => Navigator.push(context,
@@ -488,7 +491,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                               ),
                               _TapColorCard(
                                 title: 'Drones',
-                                imagePath: 'lib/assets/images/drone.jpeg',
+                                imagePath: 'lib/assets/images/drone.png',
                                 color: AppColors.amber,
                                 controller: _pulseController,
                                 onTap: () => Navigator.push(context,
@@ -496,7 +499,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                               ),
                               _TapColorCard(
                                 title: 'Simulators',
-                                imagePath: 'lib/assets/images/simulator.jpeg',
+                                imagePath: 'lib/assets/images/simulator.png',
                                 color: AppColors.purple,
                                 controller: _pulseController,
                                 onTap: () => Navigator.push(context,
@@ -504,7 +507,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                               ),
                               _TapColorCard(
                                 title: 'Students',
-                                imagePath: 'lib/assets/images/student.jpeg',
+                                imagePath: 'lib/assets/images/student.png',
                                 color: AppColors.green,
                                 controller: _pulseController,
                                 onTap: () => Navigator.push(context,
@@ -512,7 +515,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                               ),
                               _TapColorCard(
                                 title: 'Batches',
-                                imagePath: 'lib/assets/images/batch_list.jpeg',
+                                imagePath: 'lib/assets/images/batch_list.png',
                                 color: AppColors.coral,
                                 controller: _pulseController,
                                 onTap: () => Navigator.push(context,
@@ -1167,7 +1170,7 @@ class _BrandFooter extends StatelessWidget {
               ),
             ),
             _ShimmerText(
-              text: 'SkyLync Unmanned Pvt. Ltd.',
+              text: 'SKYLYNK UNMANNED PVT.LTD.',
               controller: controller,
               highlightColor: AppColors.teal,
               phase: 0.2,
@@ -1206,12 +1209,12 @@ class _HudBottomNav extends StatelessWidget {
         margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
         padding: const EdgeInsets.symmetric(vertical: 8),
         decoration: BoxDecoration(
-          color: AppColors.surface,
+          color: Colors.white,
           borderRadius: BorderRadius.circular(18),
           border: Border.all(color: AppColors.border),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.35),
+              color: Colors.black.withValues(alpha: 0.08),
               blurRadius: 18,
               offset: const Offset(0, 8),
             ),

@@ -65,10 +65,10 @@ flutter:
     uses-material-design: true
     assets:
         - lib/assets/images/logo.webp
-        - lib/assets/images/company_details.jpeg
-        - lib/assets/images/instructor.jpeg
-        - lib/assets/images/drone.jpeg
-        - lib/assets/images/simulator.jpeg
-        - lib/assets/images/student.jpeg
-        - lib/assets/images/batch_list.jpeg
+        - lib/assets/images/company_details.png
+        - lib/assets/images/instructor.png
+        - lib/assets/images/drone.png
+        - lib/assets/images/simulator.png
+        - lib/assets/images/student.png
+        - lib/assets/images/batch_list.png
         - lib/assets/images/splash_screen.png
