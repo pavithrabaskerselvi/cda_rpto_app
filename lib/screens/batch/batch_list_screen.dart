@@ -1,8 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart'; // NEW
 import '../../config/routes.dart';
-import '../../providers/theme_provider.dart'; // NEW
 
 class BatchListScreen extends StatefulWidget {
   const BatchListScreen({super.key});
@@ -67,8 +65,6 @@ class _BatchListScreenState extends State<BatchListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final themeProvider = context.watch<ThemeProvider>(); // NEW
-
     return Scaffold(
       backgroundColor: _kNavy(context),
       body: CustomScrollView(
@@ -90,28 +86,7 @@ class _BatchListScreenState extends State<BatchListScreen> {
                 letterSpacing: 0.2,
               ),
             ),
-            // NEW: dark/light mode toggle
             actions: [
-              Row(
-                children: [
-                  Icon(Icons.light_mode,
-                      size: 18,
-                      color: themeProvider.isDarkMode
-                          ? _kTextSecondary(context)
-                          : _kAmber(context)),
-                  Switch(
-                    value: themeProvider.isDarkMode,
-                    activeColor: _kTeal(context),
-                    onChanged: (val) => themeProvider.toggleTheme(val),
-                  ),
-                  Icon(Icons.dark_mode,
-                      size: 18,
-                      color: themeProvider.isDarkMode
-                          ? _kTeal(context)
-                          : _kTextSecondary(context)),
-                  const SizedBox(width: 4),
-                ],
-              ),
               Padding(
                 padding: const EdgeInsets.only(right: 8),
                 child: IconButton(
