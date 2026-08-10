@@ -5,6 +5,7 @@ import '../../config/theme.dart';
 import '../../providers/vault_provider.dart';
 import '../../models/vault_folder_model.dart';
 import 'vault_category_screen.dart';
+import 'vault_folder_browser_screen.dart';
 import 'vault_search_screen.dart';
 
 class VaultHomeScreen extends StatefulWidget {
@@ -81,37 +82,61 @@ class _VaultHomeScreenState extends State<VaultHomeScreen> {
           return RefreshIndicator(
             color: AppColors.blue,
             onRefresh: () => vault.loadFolders(),
-            child: GridView.builder(
+            child: ListView(
               padding: const EdgeInsets.all(12),
               physics: const AlwaysScrollableScrollPhysics(),
-              // Smaller, more compact tiles: 3 columns, near-square boxes
-              // instead of tall rectangles.
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 3,
-                crossAxisSpacing: 10,
-                mainAxisSpacing: 10,
-                childAspectRatio: 0.82,
-              ),
-              itemCount: vault.folders.length,
-              itemBuilder: (context, index) {
-                final folder = vault.folders[index];
-                return _VaultFolderTile(
-                  folder: folder,
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => VaultCategoryScreen(category: folder.category),
-                      ),
-                    );
-                  },
-                );
-              },
+              children: _buildFolderRows(context, vault.folders),
             ),
           );
         },
       ),
     );
+  }
+
+  // Lays folders out 3-per-row with each card sized to fit its own content
+  // (icon + label) rather than stretching to fill a fixed aspect-ratio grid
+  // cell — keeps cards compact even on wide desktop/web windows.
+  List<Widget> _buildFolderRows(BuildContext context, List<VaultFolder> folders) {
+    final rows = <Widget>[];
+    for (var i = 0; i < folders.length; i += 3) {
+      final chunk = folders.sublist(i, i + 3 > folders.length ? folders.length : i + 3);
+      rows.add(
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            for (var j = 0; j < chunk.length; j++) ...[
+              if (j > 0) const SizedBox(width: 10),
+              Expanded(
+                child: _VaultFolderTile(
+                  folder: chunk[j],
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => chunk[j].category.supportsSubfolders
+                            ? VaultFolderBrowserScreen(category: chunk[j].category)
+                            : VaultCategoryScreen(category: chunk[j].category),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+            // Pad the last row so cards stay a consistent width even when
+            // it has fewer than 3 items.
+            if (chunk.length < 3) ...[
+              for (var k = 0; k < 3 - chunk.length; k++) ...[
+                const SizedBox(width: 10),
+                const Expanded(child: SizedBox()),
+              ],
+            ],
+          ],
+        ),
+      );
+      rows.add(const SizedBox(height: 10));
+    }
+    if (rows.isNotEmpty) rows.removeLast();
+    return rows;
   }
 }
 
@@ -130,7 +155,7 @@ class _VaultFolderTile extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 14),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),
@@ -144,6 +169,7 @@ class _VaultFolderTile extends StatelessWidget {
           ],
         ),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [

@@ -6,6 +6,9 @@ class VaultCategory {
   final IconData icon;
   final Color color;
   final List<String> matchTokens;
+  // Only 'audit_files' supports nested user-created folders for now.
+  // Every other category keeps its existing flat file list.
+  final bool supportsSubfolders;
 
   const VaultCategory({
     required this.key,
@@ -13,6 +16,7 @@ class VaultCategory {
     required this.icon,
     required this.color,
     required this.matchTokens,
+    this.supportsSubfolders = false,
   });
 }
 
@@ -33,6 +37,7 @@ class VaultCategories {
       icon: Icons.fact_check_outlined,
       color: Color(0xFF6D28D9),
       matchTokens: ['audit'],
+      supportsSubfolders: true,
     ),
     VaultCategory(
       key: 'course_material',

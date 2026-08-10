@@ -4,12 +4,17 @@ import 'package:flutter/foundation.dart';
 import '../config/vault_categories.dart';
 import '../models/vault_document_model.dart';
 import '../models/vault_folder_model.dart';
+import '../models/vault_subfolder_model.dart';
 
 /// Firestore collection holding every RPTO Vault file, flat, filtered by
 /// [VaultDocument.categoryKey]. Kept flat (rather than one subcollection
 /// per category) so the search screen can query across every category
 /// in a single call.
 const String kVaultCollection = 'vault_documents';
+
+/// Firestore collection holding user-created subfolders for categories
+/// with VaultCategory.supportsSubfolders (currently only 'audit_files').
+const String kVaultSubfoldersCollection = 'vault_subfolders';
 
 /// Loads category tile counts for the Vault home screen, fetches the
 /// file list for a single category, and runs the cross-category search.
@@ -91,6 +96,7 @@ class VaultProvider extends ChangeNotifier {
     required String extension,
     required int size,
     required String uploadedBy,
+    String folderPath = '',
   }) async {
     await _firestore.collection(kVaultCollection).add(
       VaultDocument(
@@ -102,6 +108,7 @@ class VaultProvider extends ChangeNotifier {
         size: size,
         uploadedBy: uploadedBy,
         uploadedAt: DateTime.now(),
+        folderPath: folderPath,
       ).toMap(),
     );
 
@@ -166,5 +173,75 @@ class VaultProvider extends ChangeNotifier {
   void clearSearch() {
     _searchResults = [];
     notifyListeners();
+  }
+
+  // ── Nested folders (categories with supportsSubfolders: true) ─────────
+
+  /// Files at one exact folder level within a category — e.g. category
+  /// 'audit_files', folderPath '03-02-2026/CHECKLIST' returns only the
+  /// files uploaded directly into that folder, not files in sibling or
+  /// child folders.
+  Stream<List<VaultDocument>> watchCategoryPath(String categoryKey, String folderPath) {
+    return _firestore
+        .collection(kVaultCollection)
+        .where('categoryKey', isEqualTo: categoryKey)
+        .where('folderPath', isEqualTo: folderPath)
+        .orderBy('uploadedAt', descending: true)
+        .snapshots()
+        .map((snap) => snap.docs.map((d) => VaultDocument.fromDocument(d)).toList());
+  }
+
+  /// Subfolders sitting directly under [parentPath] within [categoryKey].
+  /// Pass '' for parentPath to get the top-level folders shown right
+  /// under the category (e.g. the date folders under Audit Files).
+  Stream<List<VaultSubfolder>> watchSubfolders(String categoryKey, String parentPath) {
+    return _firestore
+        .collection(kVaultSubfoldersCollection)
+        .where('categoryKey', isEqualTo: categoryKey)
+        .where('parentPath', isEqualTo: parentPath)
+        .orderBy('name')
+        .snapshots()
+        .map((snap) => snap.docs.map((d) => VaultSubfolder.fromDocument(d)).toList());
+  }
+
+  /// Creates a new subfolder. Returns false (without writing) if a
+  /// sibling folder with the same name already exists at this level.
+  Future<bool> createSubfolder({
+    required String categoryKey,
+    required String parentPath,
+    required String name,
+    required String createdBy,
+  }) async {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) return false;
+
+    final existing = await _firestore
+        .collection(kVaultSubfoldersCollection)
+        .where('categoryKey', isEqualTo: categoryKey)
+        .where('parentPath', isEqualTo: parentPath)
+        .where('name', isEqualTo: trimmed)
+        .limit(1)
+        .get();
+    if (existing.docs.isNotEmpty) return false;
+
+    await _firestore.collection(kVaultSubfoldersCollection).add(
+      VaultSubfolder(
+        id: '',
+        categoryKey: categoryKey,
+        name: trimmed,
+        parentPath: parentPath,
+        createdAt: DateTime.now(),
+        createdBy: createdBy,
+      ).toMap(),
+    );
+    return true;
+  }
+
+  /// Deletes a subfolder record. Does NOT recursively delete files or
+  /// child folders inside it — by design, so an accidental tap can't
+  /// silently wipe out nested content. The UI should only offer this
+  /// once the folder (and its subtree) is confirmed empty.
+  Future<void> deleteSubfolder(String subfolderId) async {
+    await _firestore.collection(kVaultSubfoldersCollection).doc(subfolderId).delete();
   }
 }

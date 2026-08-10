@@ -34,11 +34,22 @@ class _ImportItem {
 /// Navigator.push(context, MaterialPageRoute(
 ///   builder: (_) => VaultBulkImportScreen(initialCategoryKey: category.key),
 /// ));
+/// // or pre-select a category AND a subfolder inside it, e.g. coming
+/// // from VaultFolderBrowserScreen:
+/// Navigator.push(context, MaterialPageRoute(
+///   builder: (_) => VaultBulkImportScreen(
+///     initialCategoryKey: category.key,
+///     folderPath: '03-02-2026/CHECKLIST',
+///   ),
+/// ));
 /// ```
 class VaultBulkImportScreen extends StatefulWidget {
   final String? initialCategoryKey;
+  // Subfolder within the category to upload into, '' for the category
+  // root. Only meaningful for categories with supportsSubfolders: true.
+  final String folderPath;
 
-  const VaultBulkImportScreen({super.key, this.initialCategoryKey});
+  const VaultBulkImportScreen({super.key, this.initialCategoryKey, this.folderPath = ''});
 
   @override
   State<VaultBulkImportScreen> createState() => _VaultBulkImportScreenState();
@@ -116,7 +127,9 @@ class _VaultBulkImportScreenState extends State<VaultBulkImportScreen> {
         final secureUrl = await _cloudinary.uploadPdf(
           bytes: item.file.bytes!,
           fileName: item.file.name,
-          folder: 'rpto_vault/${_selectedCategory.key}',
+          folder: widget.folderPath.isEmpty
+              ? 'rpto_vault/${_selectedCategory.key}'
+              : 'rpto_vault/${_selectedCategory.key}/${widget.folderPath}',
         );
 
         await vault.addDocument(
@@ -126,6 +139,7 @@ class _VaultBulkImportScreenState extends State<VaultBulkImportScreen> {
           extension: item.file.extension ?? '',
           size: item.file.size,
           uploadedBy: uploadedBy,
+          folderPath: widget.folderPath,
         );
 
         setState(() => item.status = _ImportItemStatus.success);
@@ -196,6 +210,34 @@ class _VaultBulkImportScreenState extends State<VaultBulkImportScreen> {
       ),
       body: Column(
         children: [
+          if (widget.folderPath.isNotEmpty)
+            Container(
+              width: double.infinity,
+              margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: _selectedCategory.color.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: _selectedCategory.color.withValues(alpha: 0.3)),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.folder_outlined, size: 18, color: _selectedCategory.color),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Uploading into: ${_selectedCategory.label} / ${widget.folderPath}',
+                      style: TextStyle(
+                        color: _selectedCategory.color,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 12.5,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
           // ---- Category picker ----
           Padding(
             padding: const EdgeInsets.all(16),
@@ -220,7 +262,11 @@ class _VaultBulkImportScreenState extends State<VaultBulkImportScreen> {
                 ),
               ))
                   .toList(),
-              onChanged: _isUploading ? null : (c) => setState(() => _selectedCategory = c!),
+              // Locked once a specific subfolder was pre-selected — the
+              // folderPath only makes sense for that one category.
+              onChanged: (_isUploading || widget.folderPath.isNotEmpty)
+                  ? null
+                  : (c) => setState(() => _selectedCategory = c!),
             ),
           ),
 

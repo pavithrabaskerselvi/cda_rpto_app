@@ -5,6 +5,7 @@ import '../../config/theme.dart';
 import '../../config/vault_categories.dart';
 import '../../models/vault_document_model.dart';
 import '../../providers/vault_provider.dart';
+import 'vault_bulk_import_screen.dart';
 
 /// Shows every document uploaded under one Vault category, live via
 /// VaultProvider.watchCategory. Reached from VaultHomeScreen by tapping
@@ -24,6 +25,19 @@ class VaultCategoryScreen extends StatelessWidget {
         backgroundColor: category.color,
         foregroundColor: Colors.white,
         title: Text(category.label, style: const TextStyle(fontWeight: FontWeight.w700)),
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        backgroundColor: category.color,
+        icon: const Icon(Icons.upload_file_outlined),
+        label: const Text('Add Files'),
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => VaultBulkImportScreen(initialCategoryKey: category.key),
+            ),
+          );
+        },
       ),
       body: StreamBuilder<List<VaultDocument>>(
         stream: vault.watchCategory(category.key),
@@ -47,13 +61,30 @@ class VaultCategoryScreen extends StatelessWidget {
                   Icon(Icons.folder_open, color: category.color.withValues(alpha: 0.4), size: 48),
                   const SizedBox(height: 12),
                   const Text('No files yet', style: TextStyle(color: AppColors.textSecondary)),
+                  const SizedBox(height: 16),
+                  OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => VaultBulkImportScreen(initialCategoryKey: category.key),
+                        ),
+                      );
+                    },
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: category.color,
+                      side: BorderSide(color: category.color.withValues(alpha: 0.5)),
+                    ),
+                    icon: const Icon(Icons.upload_file_outlined, size: 18),
+                    label: const Text('Add Files'),
+                  ),
                 ],
               ),
             );
           }
 
           return ListView.separated(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 88),
             itemCount: docs.length,
             separatorBuilder: (_, __) => const SizedBox(height: 8),
             itemBuilder: (context, index) {

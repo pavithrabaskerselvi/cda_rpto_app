@@ -11,6 +11,11 @@ class VaultDocument {
   final int size; // bytes
   final String uploadedBy; // uid or display name
   final DateTime uploadedAt;
+  // Slash-joined subfolder path within the category, e.g.
+  // '03-02-2026/CHECKLIST'. Empty string means the file sits at the
+  // category root. Only categories with VaultCategory.supportsSubfolders
+  // ever write a non-empty value here.
+  final String folderPath;
 
   const VaultDocument({
     required this.id,
@@ -21,6 +26,7 @@ class VaultDocument {
     required this.size,
     required this.uploadedBy,
     required this.uploadedAt,
+    this.folderPath = '',
   });
 
   factory VaultDocument.fromMap(Map<String, dynamic> map, String documentId) {
@@ -35,6 +41,7 @@ class VaultDocument {
       uploadedAt: map['uploadedAt'] != null
           ? (map['uploadedAt'] as Timestamp).toDate()
           : DateTime.now(),
+      folderPath: map['folderPath'] ?? '',
     );
   }
 
@@ -52,6 +59,7 @@ class VaultDocument {
       'size': size,
       'uploadedBy': uploadedBy,
       'uploadedAt': Timestamp.fromDate(uploadedAt),
+      'folderPath': folderPath,
     };
   }
 }
