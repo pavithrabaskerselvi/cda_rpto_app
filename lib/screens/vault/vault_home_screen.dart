@@ -5,6 +5,7 @@ import '../../config/theme.dart';
 import '../../providers/vault_provider.dart';
 import '../../models/vault_folder_model.dart';
 import 'vault_category_screen.dart';
+import 'vault_folder_browser_screen.dart';
 import 'vault_search_screen.dart';
 
 class VaultHomeScreen extends StatefulWidget {
@@ -112,7 +113,9 @@ class _VaultHomeScreenState extends State<VaultHomeScreen> {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => VaultCategoryScreen(category: chunk[j].category),
+                        builder: (_) => chunk[j].category.supportsSubfolders
+                            ? VaultFolderBrowserScreen(category: chunk[j].category)
+                            : VaultCategoryScreen(category: chunk[j].category),
                       ),
                     );
                   },
