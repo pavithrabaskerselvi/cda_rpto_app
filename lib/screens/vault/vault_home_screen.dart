@@ -84,13 +84,13 @@ class _VaultHomeScreenState extends State<VaultHomeScreen> {
             child: GridView.builder(
               padding: const EdgeInsets.all(12),
               physics: const AlwaysScrollableScrollPhysics(),
-              // Smaller, more compact tiles: 3 columns, near-square boxes
-              // instead of tall rectangles.
+              // Smaller, more compact tiles: 4 columns per row, near-square
+              // boxes instead of tall rectangles.
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 3,
-                crossAxisSpacing: 10,
-                mainAxisSpacing: 10,
-                childAspectRatio: 0.82,
+                crossAxisCount: 4,
+                crossAxisSpacing: 8,
+                mainAxisSpacing: 8,
+                childAspectRatio: 0.85,
               ),
               itemCount: vault.folders.length,
               itemBuilder: (context, index) {
@@ -130,7 +130,7 @@ class _VaultFolderTile extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),
@@ -149,16 +149,16 @@ class _VaultFolderTile extends StatelessWidget {
           children: [
             // ---- Small centered icon chip ----
             Container(
-              width: 34,
-              height: 34,
+              width: 28,
+              height: 28,
               alignment: Alignment.center,
               decoration: BoxDecoration(
                 color: folder.color.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(9),
+                borderRadius: BorderRadius.circular(8),
               ),
-              child: Icon(folder.icon, color: folder.color, size: 17),
+              child: Icon(folder.icon, color: folder.color, size: 14),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
             // ---- Label ----
             Text(
               folder.label,
@@ -166,17 +166,17 @@ class _VaultFolderTile extends StatelessWidget {
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
-                fontSize: 11.5,
+                fontSize: 10,
                 fontWeight: FontWeight.w700,
                 color: AppColors.navy,
                 height: 1.15,
               ),
             ),
-            const SizedBox(height: 3),
+            const SizedBox(height: 2),
             // ---- File count ----
             Text(
               '${folder.docCount} file${folder.docCount == 1 ? '' : 's'}',
-              style: const TextStyle(fontSize: 10, color: AppColors.textSecondary),
+              style: const TextStyle(fontSize: 9, color: AppColors.textSecondary),
             ),
           ],
         ),

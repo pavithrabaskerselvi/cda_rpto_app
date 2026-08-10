@@ -119,6 +119,18 @@ class VaultProvider extends ChangeNotifier {
     }
   }
 
+  /// Renames a document's display name in place — the Cloudinary URL and
+  /// underlying file are untouched, only the Firestore `fileName` field
+  /// updates. watchCategory's stream picks up the change automatically.
+  Future<void> renameDocument(String documentId, String newFileName) async {
+    final trimmed = newFileName.trim();
+    if (trimmed.isEmpty) return;
+    await _firestore
+        .collection(kVaultCollection)
+        .doc(documentId)
+        .update({'fileName': trimmed});
+  }
+
   Future<void> deleteDocument(String documentId, String categoryKey) async {
     await _firestore.collection(kVaultCollection).doc(documentId).delete();
 
