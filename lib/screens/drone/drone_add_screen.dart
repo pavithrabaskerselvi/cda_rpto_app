@@ -135,26 +135,6 @@ class _AddDroneScreenState extends State<AddDroneScreen> {
     );
   }
 
-  Widget _buildThemeToggle(bool isDark, CompanyColors c) {
-    return Padding(
-      padding: const EdgeInsets.only(right: 4),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.wb_sunny_outlined,
-              size: 18, color: isDark ? c.textSecondary : c.accent),
-          Switch(
-            value: isDark,
-            activeColor: c.accent,
-            onChanged: (val) => context.read<ThemeProvider>().toggleTheme(val),
-          ),
-          Icon(Icons.nightlight_round,
-              size: 18, color: isDark ? c.accent : c.textSecondary),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final isDark = context.watch<ThemeProvider>().isDarkMode;
@@ -175,7 +155,7 @@ class _AddDroneScreenState extends State<AddDroneScreen> {
               _isEdit ? 'Edit Drone' : 'Add Drone',
               style: TextStyle(color: c.textPrimary, fontWeight: FontWeight.bold),
             ),
-            actions: [_buildThemeToggle(isDark, c)],
+            actions: const [],
           ),
           SliverToBoxAdapter(
             child: Padding(

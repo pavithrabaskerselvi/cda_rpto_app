@@ -1,9 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart'; // NEW
 import '../../models/simulator_model.dart';
-import '../../providers/theme_provider.dart'; // NEW
 import 'sim_add_screen.dart';
 import 'sim_detail_screen.dart';
 
@@ -72,8 +70,6 @@ class _SimListScreenState extends State<SimListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final themeProvider = context.watch<ThemeProvider>(); // NEW
-
     return Scaffold(
       backgroundColor: _pBackground(context),
       body: CustomScrollView(
@@ -83,29 +79,7 @@ class _SimListScreenState extends State<SimListScreen> {
             pinned: true,
             expandedHeight: 130,
             iconTheme: IconThemeData(color: _pTextPrimary(context)),
-            // NEW: dark/light mode toggle
-            actions: [
-              Row(
-                children: [
-                  Icon(Icons.light_mode,
-                      size: 18,
-                      color: themeProvider.isDarkMode
-                          ? _pTextMuted(context)
-                          : _pAmber(context)),
-                  Switch(
-                    value: themeProvider.isDarkMode,
-                    activeColor: _pAccent(context),
-                    onChanged: (val) => themeProvider.toggleTheme(val),
-                  ),
-                  Icon(Icons.dark_mode,
-                      size: 18,
-                      color: themeProvider.isDarkMode
-                          ? _pAccent(context)
-                          : _pTextMuted(context)),
-                  const SizedBox(width: 8),
-                ],
-              ),
-            ],
+            actions: const [],
             flexibleSpace: FlexibleSpaceBar(
               titlePadding: const EdgeInsets.only(left: 16, bottom: 16),
               title: Text(

@@ -612,20 +612,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         _sectionCard(c, [
                           _tile(
                             c,
-                            icon: themeProvider.isDark ? Icons.dark_mode_outlined : Icons.light_mode_outlined,
-                            iconColor: c.teal,
-                            title: themeProvider.isDark ? lang.t('dark_mode_title') : lang.t('light_mode_title'),
-                            subtitle: themeProvider.isDark
-                                ? lang.t('dark_mode_subtitle_on')
-                                : lang.t('light_mode_subtitle_on'),
-                            trailing: Switch(
-                              value: themeProvider.isDark,
-                              activeColor: c.teal,
-                              onChanged: (val) => themeProvider.toggle(val),
-                            ),
-                          ),
-                          _tile(
-                            c,
                             icon: Icons.language,
                             iconColor: c.teal,
                             title: lang.t('language_title'),

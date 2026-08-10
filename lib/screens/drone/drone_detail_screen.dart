@@ -90,23 +90,6 @@ class DroneDetailsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildThemeToggle(BuildContext context, bool isDark, CompanyColors c) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(Icons.wb_sunny_outlined,
-            size: 18, color: isDark ? c.textSecondary : c.accent),
-        Switch(
-          value: isDark,
-          activeColor: c.accent,
-          onChanged: (val) => context.read<ThemeProvider>().toggleTheme(val),
-        ),
-        Icon(Icons.nightlight_round,
-            size: 18, color: isDark ? c.accent : c.textSecondary),
-      ],
-    );
-  }
-
   // ---- gradient hero header, matching Company Details / DroneList premium style ----
   Widget _header(BuildContext context, bool isDark, CompanyColors c) {
     return Container(
@@ -134,7 +117,6 @@ class DroneDetailsScreen extends StatelessWidget {
                 onPressed: () => Navigator.pop(context),
               ),
               const Spacer(),
-              _buildThemeToggle(context, isDark, c),
               IconButton(
                 icon: Icon(Icons.edit, color: c.textPrimary),
                 onPressed: () {

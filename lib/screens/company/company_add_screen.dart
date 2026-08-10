@@ -1,7 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../config/constants.dart';
 import '../../config/theme_colors.dart';
+import '../../providers/theme_provider.dart';
 
 class CompanyAddScreen extends StatefulWidget {
   const CompanyAddScreen({super.key});
@@ -103,9 +105,30 @@ class _CompanyAddScreenState extends State<CompanyAddScreen> {
     );
   }
 
+  Widget _buildThemeToggle(bool isDark, CompanyColors c) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 4),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.wb_sunny_outlined,
+              size: 18, color: isDark ? c.textSecondary : c.accent),
+          Switch(
+            value: isDark,
+            activeThumbColor: c.accent,
+            onChanged: (val) => context.read<ThemeProvider>().toggleTheme(val),
+          ),
+          Icon(Icons.nightlight_round,
+              size: 18, color: isDark ? c.accent : c.textSecondary),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final c = CompanyColors.of(false);
+    final isDark = context.watch<ThemeProvider>().isDarkMode;
+    final c = CompanyColors.of(isDark);
 
     return Scaffold(
       backgroundColor: c.background,
@@ -113,6 +136,7 @@ class _CompanyAddScreenState extends State<CompanyAddScreen> {
         backgroundColor: c.background,
         title: Text('Add Details', style: TextStyle(color: c.textPrimary)),
         iconTheme: IconThemeData(color: c.textPrimary),
+        actions: [_buildThemeToggle(isDark, c)],
       ),
       body: Form(
         key: _formKey,

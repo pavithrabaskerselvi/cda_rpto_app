@@ -156,26 +156,6 @@ class _InstructorAddScreenState extends State<InstructorAddScreen> {
     );
   }
 
-  Widget _buildThemeToggle(bool isDark, CompanyColors c) {
-    return Padding(
-      padding: const EdgeInsets.only(right: 4),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.wb_sunny_outlined,
-              size: 18, color: isDark ? c.textSecondary : c.accent),
-          Switch(
-            value: isDark,
-            activeThumbColor: c.accent,
-            onChanged: (val) => context.read<ThemeProvider>().toggleTheme(val),
-          ),
-          Icon(Icons.nightlight_round,
-              size: 18, color: isDark ? c.accent : c.textSecondary),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final isDark = context.watch<ThemeProvider>().isDarkMode;
@@ -187,7 +167,7 @@ class _InstructorAddScreenState extends State<InstructorAddScreen> {
         backgroundColor: c.background,
         title: Text('Add Instructor', style: TextStyle(color: c.textPrimary)),
         iconTheme: IconThemeData(color: c.textPrimary),
-        actions: [_buildThemeToggle(isDark, c)],
+        actions: const [],
       ),
       body: _isLoadingCompanies
           ? Center(child: CircularProgressIndicator(color: c.accent))

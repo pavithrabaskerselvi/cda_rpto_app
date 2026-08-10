@@ -34,25 +34,6 @@ class _DroneListScreenState extends State<DroneListScreen> {
     }
   }
 
-  /// Sun / moon switch — same idea as the Company List toggle. Flips the
-  /// shared ThemeProvider, so every Drone screen updates together.
-  Widget _buildThemeToggle(bool isDark, CompanyColors c) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(Icons.wb_sunny_outlined,
-            size: 18, color: isDark ? c.textSecondary : c.accent),
-        Switch(
-          value: isDark,
-          activeColor: c.accent,
-          onChanged: (val) => context.read<ThemeProvider>().toggleTheme(val),
-        ),
-        Icon(Icons.nightlight_round,
-            size: 18, color: isDark ? c.accent : c.textSecondary),
-      ],
-    );
-  }
-
   // ---- gradient hero header, matching Company Details premium style ----
   Widget _header(BuildContext context, bool isDark, CompanyColors c) {
     return Container(
@@ -87,7 +68,6 @@ class _DroneListScreenState extends State<DroneListScreen> {
                   Navigator.pushNamed(context, AppRoutes.droneBulkImport);
                 },
               ),
-              _buildThemeToggle(isDark, c),
             ],
           ),
           const SizedBox(height: 8),

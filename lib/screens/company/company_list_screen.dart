@@ -1,8 +1,10 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
 import '../../models/company_model.dart';
 import '../../config/theme_colors.dart';
+import '../../providers/theme_provider.dart';
 import 'company_add_screen.dart';
 import 'company_detail_screen.dart';
 
@@ -34,7 +36,8 @@ class _CompanyListScreenState extends State<CompanyListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final c = CompanyColors.of(false);
+    final isDark = context.watch<ThemeProvider>().isDarkMode;
+    final c = CompanyColors.of(isDark);
 
     return Scaffold(
       backgroundColor: c.background,
@@ -46,6 +49,7 @@ class _CompanyListScreenState extends State<CompanyListScreen> {
             expandedHeight: 130,
             elevation: 0,
             iconTheme: IconThemeData(color: c.textPrimary),
+            actions: [_buildThemeToggle(isDark, c)],
             flexibleSpace: FlexibleSpaceBar(
               titlePadding: const EdgeInsets.only(left: 16, bottom: 16),
               title: Text(
@@ -201,6 +205,28 @@ class _CompanyListScreenState extends State<CompanyListScreen> {
             MaterialPageRoute(builder: (_) => const CompanyAddScreen()),
           );
         },
+      ),
+    );
+  }
+
+  /// Sun / moon switch — same idea as the Student List toggle. Flips the
+  /// shared ThemeProvider, so every Company screen updates together.
+  Widget _buildThemeToggle(bool isDark, CompanyColors c) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.wb_sunny_outlined,
+              size: 18, color: isDark ? c.textSecondary : c.accent),
+          Switch(
+            value: isDark,
+            activeColor: c.accent,
+            onChanged: (val) => context.read<ThemeProvider>().toggleTheme(val),
+          ),
+          Icon(Icons.nightlight_round,
+              size: 18, color: isDark ? c.accent : c.textSecondary),
+        ],
       ),
     );
   }

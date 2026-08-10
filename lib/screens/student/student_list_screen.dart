@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart'; // NEW
 import '../../models/student_model.dart';
-import '../../providers/theme_provider.dart'; // NEW
 import 'student_detail_screen.dart';
 import 'student_add_screen.dart';
 
@@ -66,8 +64,6 @@ class _StudentListScreenState extends State<StudentListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final themeProvider = context.watch<ThemeProvider>(); // NEW
-
     return Scaffold(
       backgroundColor: _pBackground(context),
       floatingActionButton: FloatingActionButton(
@@ -97,29 +93,7 @@ class _StudentListScreenState extends State<StudentListScreen> {
                   fontWeight: FontWeight.w800,
                   fontSize: 22),
             ),
-            // NEW: dark/light mode toggle
-            actions: [
-              Row(
-                children: [
-                  Icon(Icons.light_mode,
-                      size: 18,
-                      color: themeProvider.isDarkMode
-                          ? _pTextMuted(context)
-                          : _pAmber(context)),
-                  Switch(
-                    value: themeProvider.isDarkMode,
-                    activeColor: _pAccent(context),
-                    onChanged: (val) => themeProvider.toggleTheme(val),
-                  ),
-                  Icon(Icons.dark_mode,
-                      size: 18,
-                      color: themeProvider.isDarkMode
-                          ? _pAccent(context)
-                          : _pTextMuted(context)),
-                  const SizedBox(width: 8),
-                ],
-              ),
-            ],
+            actions: const [],
             flexibleSpace: DecoratedBox(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
