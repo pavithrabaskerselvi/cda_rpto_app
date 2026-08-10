@@ -143,9 +143,15 @@ class StudentInfoTab extends StatelessWidget {
                 Divider(color: ThemeColors.divider(context)),
                 _infoRow(context, 'Phone', student.phone),
                 Divider(color: ThemeColors.divider(context)),
-                _infoRow(context, 'State', student.state),
+                _infoRow(context, 'Aadhaar', student.aadhaar),
                 Divider(color: ThemeColors.divider(context)),
-                _infoRow(context, 'Place', student.place),
+                _infoRow(
+                  context,
+                  'Date of Birth',
+                  student.dateOfBirth != null
+                      ? DateFormat('dd MMM yyyy').format(student.dateOfBirth!)
+                      : '',
+                ),
                 Divider(color: ThemeColors.divider(context)),
                 _infoRow(context, 'Batch', student.batchName),
                 Divider(color: ThemeColors.divider(context)),

@@ -24,8 +24,7 @@ class _StudentAddScreenState extends State<StudentAddScreen> {
   final _nameCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
-  final _stateCtrl = TextEditingController();
-  final _placeCtrl = TextEditingController();
+  final _aadhaarCtrl = TextEditingController();
 
   String? _batchId;
   String? _batchName;
@@ -33,6 +32,7 @@ class _StudentAddScreenState extends State<StudentAddScreen> {
   String? _companyId;
   String? _companyName;
   DateTime? _enrollmentDate;
+  DateTime? _dateOfBirth;
   bool _saving = false;
 
   final List<String> _statuses = ['Active', 'Completed', 'Dropped'];
@@ -50,8 +50,7 @@ class _StudentAddScreenState extends State<StudentAddScreen> {
     _nameCtrl.dispose();
     _emailCtrl.dispose();
     _phoneCtrl.dispose();
-    _stateCtrl.dispose();
-    _placeCtrl.dispose();
+    _aadhaarCtrl.dispose();
     super.dispose();
   }
 
@@ -87,15 +86,41 @@ class _StudentAddScreenState extends State<StudentAddScreen> {
     if (picked != null) setState(() => _enrollmentDate = picked);
   }
 
+  Future<void> _pickDob() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _dateOfBirth ?? DateTime(2000),
+      firstDate: DateTime(1950),
+      lastDate: DateTime.now(),
+      builder: (context, child) => Theme(
+        data: _isDark(context)
+            ? ThemeData.dark().copyWith(
+            colorScheme: ColorScheme.dark(
+                primary: teal, surface: _surface(context)))
+            : ThemeData.light().copyWith(
+            colorScheme: ColorScheme.light(
+                primary: teal, surface: _surface(context))),
+        child: child!,
+      ),
+    );
+    if (picked != null) setState(() => _dateOfBirth = picked);
+  }
+
   Future<void> _saveStudent() async {
     if (!_formKey.currentState!.validate()) return;
-    setState(() => _saving = true);
 
     if (_batchId == null) {
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text('Select a batch')));
       return;
     }
+    if (_dateOfBirth == null) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Select date of birth')));
+      return;
+    }
+
+    setState(() => _saving = true);
 
     try {
       final docRef = FirebaseFirestore.instance.collection('students').doc();
@@ -105,8 +130,8 @@ class _StudentAddScreenState extends State<StudentAddScreen> {
         name: _nameCtrl.text.trim(),
         email: _emailCtrl.text.trim(),
         phone: _phoneCtrl.text.trim(),
-        state: _stateCtrl.text.trim(),
-        place: _placeCtrl.text.trim(),
+        aadhaar: _aadhaarCtrl.text.trim(),
+        dateOfBirth: _dateOfBirth,
         batchId: _batchId!,
         batchName: _batchName ?? '',
         companyId: _companyId ?? '',
@@ -192,21 +217,33 @@ class _StudentAddScreenState extends State<StudentAddScreen> {
               ),
               const SizedBox(height: 14),
               TextFormField(
-                controller: _stateCtrl,
+                controller: _aadhaarCtrl,
                 style: TextStyle(color: _textPrimary(context)),
-                textCapitalization: TextCapitalization.words,
-                decoration: _decoration(context, 'State *'),
-                validator: (v) =>
-                v == null || v.trim().isEmpty ? 'Required' : null,
+                keyboardType: TextInputType.number,
+                maxLength: 12,
+                decoration: _decoration(context, 'Aadhaar Number *')
+                    .copyWith(counterText: ''),
+                validator: (v) {
+                  final val = v?.trim() ?? '';
+                  if (val.isEmpty) return 'Required';
+                  if (!RegExp(r'^\d{12}$').hasMatch(val)) {
+                    return 'Enter a valid 12-digit Aadhaar number';
+                  }
+                  return null;
+                },
               ),
               const SizedBox(height: 14),
-              TextFormField(
-                controller: _placeCtrl,
-                style: TextStyle(color: _textPrimary(context)),
-                textCapitalization: TextCapitalization.words,
-                decoration: _decoration(context, 'Place (City/Town) *'),
-                validator: (v) =>
-                v == null || v.trim().isEmpty ? 'Required' : null,
+              InkWell(
+                onTap: _pickDob,
+                child: InputDecorator(
+                  decoration: _decoration(context, 'Date of Birth *'),
+                  child: Text(
+                    _dateOfBirth != null
+                        ? '${_dateOfBirth!.day}/${_dateOfBirth!.month}/${_dateOfBirth!.year}'
+                        : 'Select date',
+                    style: TextStyle(color: _textPrimary(context)),
+                  ),
+                ),
               ),
               const SizedBox(height: 14),
               DropdownButtonFormField<String>(
