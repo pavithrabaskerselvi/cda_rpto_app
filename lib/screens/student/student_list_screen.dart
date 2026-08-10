@@ -17,18 +17,11 @@ class StudentListScreen extends StatefulWidget {
 class _StudentListScreenState extends State<StudentListScreen> {
   String _searchQuery = '';
   String _selectedStatus = 'All';
-  String _selectedState = 'All';
-  String _selectedPlace = 'All';
 
   final List<String> _statuses = ['All', 'Active', 'Completed', 'Dropped'];
 
-  final ValueNotifier<List<String>> _statesNotifier = ValueNotifier([]);
-  final ValueNotifier<List<String>> _placesNotifier = ValueNotifier([]);
-
   @override
   void dispose() {
-    _statesNotifier.dispose();
-    _placesNotifier.dispose();
     super.dispose();
   }
 
@@ -141,7 +134,7 @@ class _StudentListScreenState extends State<StudentListScreen> {
               ),
             ),
             bottom: PreferredSize(
-              preferredSize: const Size.fromHeight(202),
+              preferredSize: const Size.fromHeight(110),
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
                 child: Column(
@@ -153,7 +146,7 @@ class _StudentListScreenState extends State<StudentListScreen> {
                           setState(() => _searchQuery = v.toLowerCase()),
                       decoration: InputDecoration(
                         hintText:
-                        'Search roll no / name / email / phone / state / place...',
+                        'Search roll no / name / email / phone / aadhaar...',
                         hintStyle: GoogleFonts.plusJakartaSans(
                             color: _pTextMuted(context)),
                         prefixIcon:
@@ -183,10 +176,6 @@ class _StudentListScreenState extends State<StudentListScreen> {
                             selected: selected,
                             onSelected: (_) => setState(() {
                               _selectedStatus = s;
-                              if (s == 'All') {
-                                _selectedState = 'All';
-                                _selectedPlace = 'All';
-                              }
                             }),
                             selectedColor: _pAccent(context),
                             backgroundColor: _pSurface(context),
@@ -203,82 +192,6 @@ class _StudentListScreenState extends State<StudentListScreen> {
                           );
                         },
                       ),
-                    ),
-                    const SizedBox(height: 10),
-                    // ---- State chip row (dynamic, built from live data) ----
-                    ValueListenableBuilder<List<String>>(
-                      valueListenable: _statesNotifier,
-                      builder: (context, states, _) {
-                        return SizedBox(
-                          height: 36,
-                          child: ListView.separated(
-                            scrollDirection: Axis.horizontal,
-                            itemCount: states.length,
-                            separatorBuilder: (_, __) =>
-                            const SizedBox(width: 8),
-                            itemBuilder: (context, index) {
-                              final s = states[index];
-                              final selected = s == _selectedState;
-                              return ChoiceChip(
-                                label: Text(s),
-                                selected: selected,
-                                onSelected: (_) =>
-                                    setState(() => _selectedState = s),
-                                selectedColor: _pGold(context),
-                                backgroundColor: _pSurface(context),
-                                labelStyle: GoogleFonts.plusJakartaSans(
-                                  color: selected
-                                      ? _pBackground(context)
-                                      : _pTextSecondary(context),
-                                  fontWeight: FontWeight.w600,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(20),
-                                  side: BorderSide.none,
-                                ),
-                              );
-                            },
-                          ),
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 10),
-                    // ---- Place chip row (dynamic, built from live data) ----
-                    ValueListenableBuilder<List<String>>(
-                      valueListenable: _placesNotifier,
-                      builder: (context, places, _) {
-                        return SizedBox(
-                          height: 36,
-                          child: ListView.separated(
-                            scrollDirection: Axis.horizontal,
-                            itemCount: places.length,
-                            separatorBuilder: (_, __) =>
-                            const SizedBox(width: 8),
-                            itemBuilder: (context, index) {
-                              final p = places[index];
-                              final selected = p == _selectedPlace;
-                              return ChoiceChip(
-                                label: Text(p),
-                                selected: selected,
-                                onSelected: (_) =>
-                                    setState(() => _selectedPlace = p),
-                                selectedColor: _pDanger(context),
-                                backgroundColor: _pSurface(context),
-                                labelStyle: GoogleFonts.plusJakartaSans(
-                                  color: selected
-                                      ? _pBackground(context)
-                                      : _pTextSecondary(context),
-                                  fontWeight: FontWeight.w600,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(20),
-                                  side: BorderSide.none,
-                                ),
-                              );
-                            },
-                          ),
-                        );
-                      },
                     ),
                   ],
                 ),
@@ -312,60 +225,16 @@ class _StudentListScreenState extends State<StudentListScreen> {
                   .map((doc) => StudentModel.fromDocument(doc))
                   .toList();
 
-              final distinctStates = allStudents
-                  .map((s) => s.state.trim())
-                  .where((s) => s.isNotEmpty)
-                  .toSet()
-                  .toList()
-                ..sort();
-              final stateOptions = distinctStates;
-
-              final distinctPlaces = allStudents
-                  .map((s) => s.place.trim())
-                  .where((s) => s.isNotEmpty)
-                  .toSet()
-                  .toList()
-                ..sort();
-              final placeOptions = distinctPlaces;
-
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (!mounted) return;
-                final currentStates = _statesNotifier.value;
-                final sameStates = currentStates.length == stateOptions.length &&
-                    List.generate(currentStates.length,
-                            (i) => currentStates[i] == stateOptions[i])
-                        .every((e) => e);
-                if (!sameStates) {
-                  _statesNotifier.value = stateOptions;
-                }
-                final currentPlaces = _placesNotifier.value;
-                final samePlaces = currentPlaces.length == placeOptions.length &&
-                    List.generate(currentPlaces.length,
-                            (i) => currentPlaces[i] == placeOptions[i])
-                        .every((e) => e);
-                if (!samePlaces) {
-                  _placesNotifier.value = placeOptions;
-                }
-              });
-
               final students = allStudents.where((s) {
                 final matchesStatus =
                     _selectedStatus == 'All' || s.status == _selectedStatus;
-                final matchesState =
-                    _selectedState == 'All' || s.state == _selectedState;
-                final matchesPlace =
-                    _selectedPlace == 'All' || s.place == _selectedPlace;
                 final matchesSearch = _searchQuery.isEmpty ||
                     s.rollNo.toLowerCase().contains(_searchQuery) ||
                     s.name.toLowerCase().contains(_searchQuery) ||
                     s.email.toLowerCase().contains(_searchQuery) ||
                     s.phone.toLowerCase().contains(_searchQuery) ||
-                    s.state.toLowerCase().contains(_searchQuery) ||
-                    s.place.toLowerCase().contains(_searchQuery);
-                return matchesStatus &&
-                    matchesState &&
-                    matchesPlace &&
-                    matchesSearch;
+                    s.aadhaar.toLowerCase().contains(_searchQuery);
+                return matchesStatus && matchesSearch;
               }).toList()
               // Roll No ascending (numeric-aware; blanks sort last)
                 ..sort(StudentModel.compareRollNo);
@@ -448,8 +317,6 @@ class _StudentListScreenState extends State<StudentListScreen> {
                               [
                                 student.batchName,
                                 student.phone,
-                                if (student.place.isNotEmpty) student.place,
-                                if (student.state.isNotEmpty) student.state,
                               ].join(' • '),
                               style: GoogleFonts.plusJakartaSans(
                                   color: _pTextSecondary(context),

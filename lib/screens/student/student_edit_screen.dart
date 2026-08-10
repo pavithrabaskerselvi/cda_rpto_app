@@ -18,8 +18,7 @@ class _StudentEditScreenState extends State<StudentEditScreen> {
   late TextEditingController _nameCtrl;
   late TextEditingController _emailCtrl;
   late TextEditingController _phoneCtrl;
-  late TextEditingController _stateCtrl;
-  late TextEditingController _placeCtrl;
+  late TextEditingController _aadhaarCtrl;
 
   late String _status;
   String? _batchId;
@@ -27,6 +26,7 @@ class _StudentEditScreenState extends State<StudentEditScreen> {
   String? _companyId;
   String? _companyName;
   DateTime? _enrollmentDate;
+  DateTime? _dateOfBirth;
   bool _saving = false;
 
   final List<String> _statuses = ['Active', 'Completed', 'Dropped'];
@@ -39,14 +39,14 @@ class _StudentEditScreenState extends State<StudentEditScreen> {
     _nameCtrl = TextEditingController(text: s.name);
     _emailCtrl = TextEditingController(text: s.email);
     _phoneCtrl = TextEditingController(text: s.phone);
-    _stateCtrl = TextEditingController(text: s.state);
-    _placeCtrl = TextEditingController(text: s.place);
+    _aadhaarCtrl = TextEditingController(text: s.aadhaar);
     _status = s.status;
     _batchId = s.batchId;
     _batchName = s.batchName;
     _companyId = s.companyId;
     _companyName = s.companyName;
     _enrollmentDate = s.enrollmentDate;
+    _dateOfBirth = s.dateOfBirth;
   }
 
   @override
@@ -55,8 +55,7 @@ class _StudentEditScreenState extends State<StudentEditScreen> {
     _nameCtrl.dispose();
     _emailCtrl.dispose();
     _phoneCtrl.dispose();
-    _stateCtrl.dispose();
-    _placeCtrl.dispose();
+    _aadhaarCtrl.dispose();
     super.dispose();
   }
 
@@ -79,11 +78,35 @@ class _StudentEditScreenState extends State<StudentEditScreen> {
     if (picked != null) setState(() => _enrollmentDate = picked);
   }
 
+  Future<void> _pickDob() async {
+    final isDark = ThemeColors.isDark(context);
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _dateOfBirth ?? DateTime(2000),
+      firstDate: DateTime(1950),
+      lastDate: DateTime.now(),
+      builder: (context, child) => Theme(
+        data: isDark
+            ? ThemeData.dark().copyWith(
+            colorScheme: const ColorScheme.dark(primary: kTeal, surface: kSurface))
+            : ThemeData.light().copyWith(
+            colorScheme: const ColorScheme.light(primary: kTeal)),
+        child: child!,
+      ),
+    );
+    if (picked != null) setState(() => _dateOfBirth = picked);
+  }
+
   Future<void> _updateStudent() async {
     if (!_formKey.currentState!.validate()) return;
     if (_batchId == null) {
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text('Select a batch')));
+      return;
+    }
+    if (_dateOfBirth == null) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Select date of birth')));
       return;
     }
     setState(() => _saving = true);
@@ -94,8 +117,8 @@ class _StudentEditScreenState extends State<StudentEditScreen> {
         name: _nameCtrl.text.trim(),
         email: _emailCtrl.text.trim(),
         phone: _phoneCtrl.text.trim(),
-        state: _stateCtrl.text.trim(),
-        place: _placeCtrl.text.trim(),
+        aadhaar: _aadhaarCtrl.text.trim(),
+        dateOfBirth: _dateOfBirth,
         batchId: _batchId,
         batchName: _batchName,
         companyId: _companyId,
@@ -185,19 +208,33 @@ class _StudentEditScreenState extends State<StudentEditScreen> {
               ),
               const SizedBox(height: 14),
               TextFormField(
-                controller: _stateCtrl,
+                controller: _aadhaarCtrl,
                 style: TextStyle(color: ThemeColors.textPrimary(context)),
-                textCapitalization: TextCapitalization.words,
-                decoration: _decoration(context, 'State *'),
-                validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
+                keyboardType: TextInputType.number,
+                maxLength: 12,
+                decoration: _decoration(context, 'Aadhaar Number *')
+                    .copyWith(counterText: ''),
+                validator: (v) {
+                  final val = v?.trim() ?? '';
+                  if (val.isEmpty) return 'Required';
+                  if (!RegExp(r'^\d{12}$').hasMatch(val)) {
+                    return 'Enter a valid 12-digit Aadhaar number';
+                  }
+                  return null;
+                },
               ),
               const SizedBox(height: 14),
-              TextFormField(
-                controller: _placeCtrl,
-                style: TextStyle(color: ThemeColors.textPrimary(context)),
-                textCapitalization: TextCapitalization.words,
-                decoration: _decoration(context, 'Place (City/Town) *'),
-                validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
+              InkWell(
+                onTap: _pickDob,
+                child: InputDecorator(
+                  decoration: _decoration(context, 'Date of Birth *'),
+                  child: Text(
+                    _dateOfBirth != null
+                        ? '${_dateOfBirth!.day}/${_dateOfBirth!.month}/${_dateOfBirth!.year}'
+                        : 'Select date',
+                    style: TextStyle(color: ThemeColors.textPrimary(context)),
+                  ),
+                ),
               ),
               const SizedBox(height: 14),
               DropdownButtonFormField<String>(

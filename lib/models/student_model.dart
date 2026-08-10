@@ -2,12 +2,12 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 class StudentModel {
   final String id;
-  final String rollNo; // NEW
+  final String rollNo;
   final String name;
   final String email;
   final String phone;
-  final String state; // NEW
-  final String place; // NEW
+  final String aadhaar; // NEW (replaces state)
+  final DateTime? dateOfBirth; // NEW (replaces place)
   final String batchId;
   final String batchName;
   final String companyId;
@@ -19,12 +19,12 @@ class StudentModel {
 
   StudentModel({
     required this.id,
-    required this.rollNo, // NEW
+    required this.rollNo,
     required this.name,
     required this.email,
     required this.phone,
-    required this.state, // NEW
-    required this.place, // NEW
+    required this.aadhaar, // NEW
+    this.dateOfBirth, // NEW
     required this.batchId,
     required this.batchName,
     required this.companyId,
@@ -38,12 +38,14 @@ class StudentModel {
   factory StudentModel.fromMap(Map<String, dynamic> map, String documentId) {
     return StudentModel(
       id: documentId,
-      rollNo: map['rollNo'] ?? '', // NEW
+      rollNo: map['rollNo'] ?? '',
       name: map['name'] ?? '',
       email: map['email'] ?? '',
       phone: map['phone'] ?? '',
-      state: map['state'] ?? '', // NEW
-      place: map['place'] ?? '', // NEW
+      aadhaar: map['aadhaar'] ?? '', // NEW
+      dateOfBirth: map['dateOfBirth'] != null
+          ? (map['dateOfBirth'] as Timestamp).toDate()
+          : null, // NEW
       batchId: map['batchId'] ?? '',
       batchName: map['batchName'] ?? '',
       companyId: map['companyId'] ?? '',
@@ -68,12 +70,13 @@ class StudentModel {
 
   Map<String, dynamic> toMap() {
     return {
-      'rollNo': rollNo, // NEW
+      'rollNo': rollNo,
       'name': name,
       'email': email,
       'phone': phone,
-      'state': state, // NEW
-      'place': place, // NEW
+      'aadhaar': aadhaar, // NEW
+      'dateOfBirth':
+      dateOfBirth != null ? Timestamp.fromDate(dateOfBirth!) : null, // NEW
       'batchId': batchId,
       'batchName': batchName,
       'companyId': companyId,
@@ -86,12 +89,12 @@ class StudentModel {
   }
 
   StudentModel copyWith({
-    String? rollNo, // NEW
+    String? rollNo,
     String? name,
     String? email,
     String? phone,
-    String? state, // NEW
-    String? place, // NEW
+    String? aadhaar, // NEW
+    DateTime? dateOfBirth, // NEW
     String? batchId,
     String? batchName,
     String? companyId,
@@ -102,12 +105,12 @@ class StudentModel {
   }) {
     return StudentModel(
       id: id,
-      rollNo: rollNo ?? this.rollNo, // NEW
+      rollNo: rollNo ?? this.rollNo,
       name: name ?? this.name,
       email: email ?? this.email,
       phone: phone ?? this.phone,
-      state: state ?? this.state, // NEW
-      place: place ?? this.place, // NEW
+      aadhaar: aadhaar ?? this.aadhaar, // NEW
+      dateOfBirth: dateOfBirth ?? this.dateOfBirth, // NEW
       batchId: batchId ?? this.batchId,
       batchName: batchName ?? this.batchName,
       companyId: companyId ?? this.companyId,
