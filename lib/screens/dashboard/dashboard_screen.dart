@@ -15,6 +15,7 @@ import '../batch/batch_list_screen.dart';
 import '../instructor/instructor_list_screen.dart';
 import '../profile/profile_screen.dart';
 import '../search/search_screen.dart';
+import '../vault/vault_home_screen.dart';
 
 /// Dashboard restyled as a flight-instrument / HUD panel: corner-bracket
 /// "targeting" frames, a radar sweep behind the crest, monospace readouts,
@@ -521,6 +522,20 @@ class _DashboardScreenState extends State<DashboardScreen>
                                 onTap: () => Navigator.push(context,
                                     MaterialPageRoute(builder: (_) => const BatchListScreen())),
                               ),
+                              // ---- NEW: RPTO Vault tile ----
+                              // Drop a 'vault.png' image into
+                              // lib/assets/images/ for a matching look; if
+                              // it's missing, _TapColorCard's errorBuilder
+                              // falls back to a plain icon automatically so
+                              // nothing breaks in the meantime.
+                              _TapColorCard(
+                                title: 'RPTO Vault',
+                                imagePath: 'lib/assets/images/rpto_vault.png',
+                                color: AppColors.blue,
+                                controller: _pulseController,
+                                onTap: () => Navigator.push(context,
+                                    MaterialPageRoute(builder: (_) => const VaultHomeScreen())),
+                              ),
                             ],
                           ),
 
@@ -596,6 +611,9 @@ class _HudDrawer extends StatelessWidget {
       builder: () => const StudentListScreen()),
       (icon: Icons.groups, title: 'Batches', color: AppColors.coral,
       builder: () => const BatchListScreen()),
+      // ---- NEW: RPTO Vault drawer entry ----
+      (icon: Icons.folder_special, title: 'RPTO Vault', color: AppColors.blue,
+      builder: () => const VaultHomeScreen()),
       (icon: Icons.person, title: 'Profile', color: AppColors.blue,
       builder: () => const ProfileScreen()),
     ];

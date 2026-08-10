@@ -12,6 +12,7 @@ import '../screens/import/bulk_import_screen.dart';
 import '../controllers/bulk_import_controller.dart';
 import '../screens/import/drone_bulk_import_screen.dart';
 import '../controllers/drone_bulk_import_controller.dart';
+import '../screens/vault/vault_home_screen.dart';
 
 class AppRoutes {
   static const String login = '/login';
@@ -43,6 +44,13 @@ class AppRoutes {
   static const String batchDetail = '/batch-detail';
   static const String bulkBatchSetup = '/bulk-batch-setup';
 
+  // RPTO Vault
+  // Home screen only needs a plain route — the category screen needs a
+  // VaultCategory argument, so it's pushed directly with
+  // Navigator.push(MaterialPageRoute(...)) from vault_home_screen.dart
+  // instead of going through named routes.
+  static const String vaultHome = '/vault-home';
+
   // Bulk Import (student documents)
   // NOTE: intentionally NOT in the `routes` map below — it needs an
   // optional argument (batchName) to support "import for this batch
@@ -70,6 +78,7 @@ class AppRoutes {
       batchList: (context) => const BatchListScreen(),
       batchAdd: (context) => const AddBatchScreen(),
       bulkBatchSetup: (context) => const BulkBatchSetupScreen(),
+      vaultHome: (context) => const VaultHomeScreen(),
       // Remaining routes added as we build each module
     };
   }

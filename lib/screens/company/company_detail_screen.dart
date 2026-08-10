@@ -1,11 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
 import '../../models/company_model.dart';
 import '../../config/constants.dart';
 import '../../config/theme_colors.dart';
-import '../../providers/theme_provider.dart';
 import '../../widgets/attach_document_button.dart';
 import 'company_edit_screen.dart';
 
@@ -137,30 +135,9 @@ class _CompanyDetailScreenState extends State<CompanyDetailScreen> {
     }
   }
 
-  Widget _buildThemeToggle(bool isDark, CompanyColors c) {
-    return Padding(
-      padding: const EdgeInsets.only(right: 4),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.wb_sunny_outlined,
-              size: 18, color: isDark ? c.textSecondary : c.accent),
-          Switch(
-            value: isDark,
-            activeColor: c.accent,
-            onChanged: (val) => context.read<ThemeProvider>().toggleTheme(val),
-          ),
-          Icon(Icons.nightlight_round,
-              size: 18, color: isDark ? c.accent : c.textSecondary),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    final isDark = context.watch<ThemeProvider>().isDarkMode;
-    final c = CompanyColors.of(isDark);
+    final c = CompanyColors.of(false);
 
     final company = widget.company;
     final isActive = company.status == 'Active';
@@ -181,7 +158,6 @@ class _CompanyDetailScreenState extends State<CompanyDetailScreen> {
         ),
         iconTheme: IconThemeData(color: c.textPrimary),
         actions: [
-          _buildThemeToggle(isDark, c),
           IconButton(
             icon: Icon(Icons.edit_outlined, color: c.accent),
             onPressed: _openEditScreen,
