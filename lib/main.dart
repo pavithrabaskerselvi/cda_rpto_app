@@ -12,6 +12,7 @@ import 'screens/dashboard/dashboard_screen.dart';
 import 'providers/profile_provider.dart';
 import 'providers/theme_provider.dart';
 import 'providers/language_provider.dart';
+import 'providers/vault_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -29,43 +30,48 @@ class CdaRptoApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => ProfileProvider()),
+        // ThemeProvider is still registered in case other code reads it,
+        // but themeMode below is hardcoded to light so its dark toggle
+        // no longer has any visible effect on the app.
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
         ChangeNotifierProvider(create: (_) => LanguageProvider()),
+        // RPTO Vault — registered app-wide (not just inside the vault
+        // screens) so folder counts loaded on the Vault home screen
+        // persist in memory if the user navigates away and back.
+        ChangeNotifierProvider(create: (_) => VaultProvider()),
         // your other providers (auth_provider, batch_provider etc.)
         // can be added here too if you want them app-wide
       ],
-      child: Consumer<ThemeProvider>(
-        builder: (context, themeProvider, _) => MaterialApp(
-          title: 'CDA RPTO',
-          debugShowCheckedModeBanner: false,
-          theme: AppTheme.lightTheme,
-          darkTheme: AppTheme.darkTheme,
-          themeMode: themeProvider.isDarkMode ? ThemeMode.dark : ThemeMode.light,
-          routes: AppRoutes.routes,
-          // Handles routes that need arguments (e.g. /batch-detail needs a
-          // batchId). Routes not found here fall back to the `routes` map above.
-          onGenerateRoute: AppRoutes.onGenerateRoute,
-          // App fills the full browser window at every size — no
-          // phone-frame lock, no width cap, no letterbox.
-          builder: (context, child) {
-            return child!;
+      child: MaterialApp(
+        title: 'CDA RPTO',
+        debugShowCheckedModeBanner: false,
+        theme: AppTheme.lightTheme,
+        darkTheme: AppTheme.lightTheme,
+        themeMode: ThemeMode.light,
+        routes: AppRoutes.routes,
+        // Handles routes that need arguments (e.g. /batch-detail needs a
+        // batchId). Routes not found here fall back to the `routes` map above.
+        onGenerateRoute: AppRoutes.onGenerateRoute,
+        // App fills the full browser window at every size — no
+        // phone-frame lock, no width cap, no letterbox.
+        builder: (context, child) {
+          return child!;
+        },
+        // `home` is wrapped in a Builder so the `context` used inside
+        // onFinished belongs to a widget that's already a descendant of the
+        // Navigator MaterialApp creates. Using the outer `context` from
+        // CdaRptoApp.build() directly would fail with "Navigator operation
+        // requested with a context that does not include a Navigator."
+        home: Builder(
+          builder: (context) {
+            return SplashScreen(
+              onFinished: () {
+                Navigator.of(context).pushReplacement(
+                  MaterialPageRoute(builder: (_) => const AuthGate()),
+                );
+              },
+            );
           },
-          // `home` is wrapped in a Builder so the `context` used inside
-          // onFinished belongs to a widget that's already a descendant of the
-          // Navigator MaterialApp creates. Using the outer `context` from
-          // CdaRptoApp.build() directly would fail with "Navigator operation
-          // requested with a context that does not include a Navigator."
-          home: Builder(
-            builder: (context) {
-              return SplashScreen(
-                onFinished: () {
-                  Navigator.of(context).pushReplacement(
-                    MaterialPageRoute(builder: (_) => const AuthGate()),
-                  );
-                },
-              );
-            },
-          ),
         ),
       ),
     );

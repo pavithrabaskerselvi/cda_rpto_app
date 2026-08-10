@@ -3,10 +3,8 @@ import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
 import 'package:http/http.dart' as http;
 import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../config/theme_colors.dart';
-import '../providers/theme_provider.dart';
 import '../screens/document/document_viewer_screen.dart';
 
 /// A single attached document.
@@ -405,8 +403,7 @@ class AttachDocumentButtonState extends State<AttachDocumentButton> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = context.watch<ThemeProvider>().isDarkMode;
-    final c = CompanyColors.of(isDark);
+    final c = CompanyColors.of(false);
     final extraDocs = _documents.where((d) => d.key == null).toList();
 
     return Column(

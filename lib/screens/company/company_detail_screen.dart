@@ -1,11 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
 import '../../models/company_model.dart';
 import '../../config/constants.dart';
 import '../../config/theme_colors.dart';
-import '../../providers/theme_provider.dart';
 import '../../widgets/attach_document_button.dart';
 import 'company_edit_screen.dart';
 
@@ -139,8 +137,7 @@ class _CompanyDetailScreenState extends State<CompanyDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = context.watch<ThemeProvider>().isDarkMode;
-    final c = CompanyColors.of(isDark);
+    final c = CompanyColors.of(false);
 
     final company = widget.company;
     final isActive = company.status == 'Active';

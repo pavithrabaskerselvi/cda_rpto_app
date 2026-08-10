@@ -49,7 +49,7 @@ class _CompanyListScreenState extends State<CompanyListScreen> {
             expandedHeight: 130,
             elevation: 0,
             iconTheme: IconThemeData(color: c.textPrimary),
-            actions: const [],
+            actions: [_buildThemeToggle(isDark, c)],
             flexibleSpace: FlexibleSpaceBar(
               titlePadding: const EdgeInsets.only(left: 16, bottom: 16),
               title: Text(
@@ -205,6 +205,28 @@ class _CompanyListScreenState extends State<CompanyListScreen> {
             MaterialPageRoute(builder: (_) => const CompanyAddScreen()),
           );
         },
+      ),
+    );
+  }
+
+  /// Sun / moon switch — same idea as the Student List toggle. Flips the
+  /// shared ThemeProvider, so every Company screen updates together.
+  Widget _buildThemeToggle(bool isDark, CompanyColors c) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.wb_sunny_outlined,
+              size: 18, color: isDark ? c.textSecondary : c.accent),
+          Switch(
+            value: isDark,
+            activeColor: c.accent,
+            onChanged: (val) => context.read<ThemeProvider>().toggleTheme(val),
+          ),
+          Icon(Icons.nightlight_round,
+              size: 18, color: isDark ? c.accent : c.textSecondary),
+        ],
       ),
     );
   }
