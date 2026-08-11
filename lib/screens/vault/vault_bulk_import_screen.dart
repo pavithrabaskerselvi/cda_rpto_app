@@ -6,12 +6,13 @@ import 'package:provider/provider.dart';
 // Same upload service DroneBulkImportController already uses — adjust
 // the method name below if yours differs for non-PDF files.
 import 'package:cda_rpto/services/cloudinary_upload_service.dart';
+import 'package:cda_rpto/services/office_file_compressor_service.dart';
 
 import '../../config/theme.dart';
 import '../../config/vault_categories.dart';
 import '../../providers/vault_provider.dart';
 
-enum _ImportItemStatus { pending, uploading, success, failed }
+enum _ImportItemStatus { pending, compressing, uploading, success, failed }
 
 class _ImportItem {
   final PlatformFile file;
@@ -57,6 +58,7 @@ class VaultBulkImportScreen extends StatefulWidget {
 
 class _VaultBulkImportScreenState extends State<VaultBulkImportScreen> {
   final _cloudinary = CloudinaryUploadService();
+  final _compressor = OfficeFileCompressorService();
 
   late VaultCategory _selectedCategory;
   final List<_ImportItem> _items = [];
@@ -121,11 +123,27 @@ class _VaultBulkImportScreenState extends State<VaultBulkImportScreen> {
         continue;
       }
 
-      setState(() => item.status = _ImportItemStatus.uploading);
-
       try {
+        var bytesToUpload = item.file.bytes!;
+
+        // Course decks saved with full-resolution screenshots routinely
+        // land above Cloudinary's raw-file cap (10 MB on the free
+        // plan). Shrink embedded images client-side first so those
+        // uploads succeed on the first try instead of failing with a
+        // 400 the user then has to chase down manually.
+        if (_compressor.canCompress(item.file.name) &&
+            bytesToUpload.length > 9 * 1024 * 1024) {
+          setState(() => item.status = _ImportItemStatus.compressing);
+          bytesToUpload = await _compressor.compressToBudget(
+            bytesToUpload,
+            item.file.name,
+          );
+        }
+
+        setState(() => item.status = _ImportItemStatus.uploading);
+
         final secureUrl = await _cloudinary.uploadPdf(
-          bytes: item.file.bytes!,
+          bytes: bytesToUpload,
           fileName: item.file.name,
           folder: widget.folderPath.isEmpty
               ? 'rpto_vault/${_selectedCategory.key}'
@@ -137,7 +155,7 @@ class _VaultBulkImportScreenState extends State<VaultBulkImportScreen> {
           fileName: item.file.name,
           url: secureUrl,
           extension: item.file.extension ?? '',
-          size: item.file.size,
+          size: bytesToUpload.length,
           uploadedBy: uploadedBy,
           folderPath: widget.folderPath,
         );
@@ -177,6 +195,8 @@ class _VaultBulkImportScreenState extends State<VaultBulkImportScreen> {
     switch (status) {
       case _ImportItemStatus.pending:
         return Icons.schedule;
+      case _ImportItemStatus.compressing:
+        return Icons.compress;
       case _ImportItemStatus.uploading:
         return Icons.cloud_upload_outlined;
       case _ImportItemStatus.success:
@@ -190,12 +210,25 @@ class _VaultBulkImportScreenState extends State<VaultBulkImportScreen> {
     switch (status) {
       case _ImportItemStatus.pending:
         return AppColors.textMuted;
+      case _ImportItemStatus.compressing:
+        return AppColors.blue;
       case _ImportItemStatus.uploading:
         return AppColors.blue;
       case _ImportItemStatus.success:
         return AppColors.green;
       case _ImportItemStatus.failed:
         return AppColors.coral;
+    }
+  }
+
+  String? _statusLabel(_ImportItemStatus status) {
+    switch (status) {
+      case _ImportItemStatus.compressing:
+        return 'Compressing…';
+      case _ImportItemStatus.uploading:
+        return 'Uploading…';
+      default:
+        return null;
     }
   }
 
@@ -343,8 +376,14 @@ class _VaultBulkImportScreenState extends State<VaultBulkImportScreen> {
                       item.errorMessage!,
                       style: const TextStyle(fontSize: 11, color: AppColors.coral),
                     )
+                        : _statusLabel(item.status) != null
+                        ? Text(
+                      _statusLabel(item.status)!,
+                      style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                    )
                         : null,
-                    trailing: item.status == _ImportItemStatus.uploading
+                    trailing: item.status == _ImportItemStatus.uploading ||
+                        item.status == _ImportItemStatus.compressing
                         ? const SizedBox(
                       width: 16,
                       height: 16,

@@ -55,6 +55,8 @@ dependencies:
 
   # App version/build number shown on the Profile "About App" dialog
   package_info_plus: ^8.1.1
+  archive: ^3.6.1
+  image: ^4.3.0
 
 dev_dependencies:
   flutter_test:
