@@ -141,6 +141,23 @@ class VaultProvider extends ChangeNotifier {
     }
   }
 
+  /// Renames a document's display file name in place (URL/extension/size
+  /// stay the same — this only edits the label shown in the vault list).
+  /// [categoryKey] isn't needed for the Firestore update itself, but is
+  /// kept in the signature to match how VaultCategoryScreen already
+  /// calls deleteDocument, and in case category-scoped side effects
+  /// (e.g. folder tile refresh) are needed later.
+  Future<void> renameDocument(
+      String documentId, String categoryKey, String newFileName) async {
+    final trimmed = newFileName.trim();
+    if (trimmed.isEmpty) return;
+
+    await _firestore
+        .collection(kVaultCollection)
+        .doc(documentId)
+        .update({'fileName': trimmed});
+  }
+
   /// Client-side filename search across every category. Firestore has no
   /// native "contains" query, so this pulls the (typically small)
   /// collection and filters in memory — fine for a few hundred docs; if

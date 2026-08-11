@@ -16,6 +16,7 @@ import '../instructor/instructor_list_screen.dart';
 import '../profile/profile_screen.dart';
 import '../search/search_screen.dart';
 import '../vault/vault_home_screen.dart';
+import '../analytics/analytics_overview_screen.dart';
 
 /// Dashboard restyled as a flight-instrument / HUD panel: corner-bracket
 /// "targeting" frames, a radar sweep behind the crest, monospace readouts,
@@ -522,7 +523,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                                 onTap: () => Navigator.push(context,
                                     MaterialPageRoute(builder: (_) => const BatchListScreen())),
                               ),
-                              // ---- NEW: RPTO Vault tile ----
+                              // ---- RPTO Vault tile ----
                               // Drop a 'vault.png' image into
                               // lib/assets/images/ for a matching look; if
                               // it's missing, _TapColorCard's errorBuilder
@@ -535,6 +536,20 @@ class _DashboardScreenState extends State<DashboardScreen>
                                 controller: _pulseController,
                                 onTap: () => Navigator.push(context,
                                     MaterialPageRoute(builder: (_) => const VaultHomeScreen())),
+                              ),
+                              // ---- NEW: Analytics Dashboard tile ----
+                              // Drop an 'analytics.png' image into
+                              // lib/assets/images/ for a matching look; if
+                              // it's missing, _TapColorCard's errorBuilder
+                              // falls back to a plain icon automatically so
+                              // nothing breaks in the meantime.
+                              _TapColorCard(
+                                title: 'Analytics dashboard',
+                                imagePath: 'lib/assets/images/analytics_dashboard.png',
+                                color: AppColors.purple,
+                                controller: _pulseController,
+                                onTap: () => Navigator.push(context,
+                                    MaterialPageRoute(builder: (_) => const AnalyticsOverviewScreen())),
                               ),
                             ],
                           ),
@@ -611,9 +626,12 @@ class _HudDrawer extends StatelessWidget {
       builder: () => const StudentListScreen()),
       (icon: Icons.groups, title: 'Batches', color: AppColors.coral,
       builder: () => const BatchListScreen()),
-      // ---- NEW: RPTO Vault drawer entry ----
+      // ---- RPTO Vault drawer entry ----
       (icon: Icons.folder_special, title: 'RPTO Vault', color: AppColors.blue,
       builder: () => const VaultHomeScreen()),
+      // ---- NEW: Analytics drawer entry ----
+      (icon: Icons.analytics, title: 'Analytics', color: AppColors.purple,
+      builder: () => const AnalyticsOverviewScreen()),
       (icon: Icons.person, title: 'Profile', color: AppColors.blue,
       builder: () => const ProfileScreen()),
     ];
@@ -1083,10 +1101,10 @@ class _TapColorCardState extends State<_TapColorCard> {
               ),
 
               // ---- Pressed-state color wash on top of the image ----
-              AnimatedOpacity(
-                duration: const Duration(milliseconds: 150),
-                opacity: _isPressed ? 1 : 0,
-                child: Positioned.fill(
+              Positioned.fill(
+                child: AnimatedOpacity(
+                  duration: const Duration(milliseconds: 150),
+                  opacity: _isPressed ? 1 : 0,
                   child: Container(color: widget.color.withValues(alpha: 0.22)),
                 ),
               ),

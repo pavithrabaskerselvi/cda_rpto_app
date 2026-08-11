@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
@@ -26,69 +27,80 @@ class _VaultHomeScreenState extends State<VaultHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: AppColors.blue,
-        foregroundColor: Colors.white,
-        title: const Text(
-          'RPTO Vault',
-          style: TextStyle(fontWeight: FontWeight.w700),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.search),
-            tooltip: 'Search Vault',
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const VaultSearchScreen()),
-              );
-            },
-          ),
-        ],
-      ),
-      body: Consumer<VaultProvider>(
-        builder: (context, vault, _) {
-          if (vault.isLoadingFolders && vault.folders.isEmpty) {
-            return const Center(child: CircularProgressIndicator());
-          }
+    // Nunito applied page-wide — every Text widget on this screen (app bar
+    // title, folder labels, file counts, error/retry states) inherits it
+    // automatically since none of them set an explicit fontFamily.
+    final nunitoTheme = GoogleFonts.nunitoTextTheme(Theme.of(context).textTheme);
 
-          if (vault.foldersError != null && vault.folders.isEmpty) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.error_outline, color: AppColors.coral, size: 40),
-                    const SizedBox(height: 12),
-                    Text(
-                      vault.foldersError!,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(color: AppColors.textSecondary),
-                    ),
-                    const SizedBox(height: 16),
-                    ElevatedButton(
-                      onPressed: () => vault.loadFolders(),
-                      child: const Text('Retry'),
-                    ),
-                  ],
+    return Theme(
+      data: Theme.of(context).copyWith(
+        textTheme: nunitoTheme,
+        primaryTextTheme: nunitoTheme,
+      ),
+      child: Scaffold(
+        backgroundColor: Colors.white,
+        appBar: AppBar(
+          backgroundColor: AppColors.blue,
+          foregroundColor: Colors.white,
+          title: const Text(
+            'RPTO Vault',
+            style: TextStyle(fontWeight: FontWeight.w700),
+          ),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.search),
+              tooltip: 'Search Vault',
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const VaultSearchScreen()),
+                );
+              },
+            ),
+          ],
+        ),
+        body: Consumer<VaultProvider>(
+          builder: (context, vault, _) {
+            if (vault.isLoadingFolders && vault.folders.isEmpty) {
+              return const Center(child: CircularProgressIndicator());
+            }
+
+            if (vault.foldersError != null && vault.folders.isEmpty) {
+              return Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.error_outline, color: AppColors.coral, size: 40),
+                      const SizedBox(height: 12),
+                      Text(
+                        vault.foldersError!,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(color: AppColors.textSecondary),
+                      ),
+                      const SizedBox(height: 16),
+                      ElevatedButton(
+                        onPressed: () => vault.loadFolders(),
+                        child: const Text('Retry'),
+                      ),
+                    ],
+                  ),
                 ),
+              );
+            }
+
+            return RefreshIndicator(
+              color: AppColors.blue,
+              onRefresh: () => vault.loadFolders(),
+              child: ListView(
+                padding: const EdgeInsets.all(12),
+                physics: const AlwaysScrollableScrollPhysics(),
+                children: _buildFolderRows(context, vault.folders),
               ),
             );
-          }
-
-          return RefreshIndicator(
-            color: AppColors.blue,
-            onRefresh: () => vault.loadFolders(),
-            child: ListView(
-              padding: const EdgeInsets.all(12),
-              physics: const AlwaysScrollableScrollPhysics(),
-              children: _buildFolderRows(context, vault.folders),
-            ),
-          );
-        },
+          },
+        ),
       ),
     );
   }

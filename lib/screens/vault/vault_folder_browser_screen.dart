@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../config/theme.dart';
 import '../../config/vault_categories.dart';
@@ -120,6 +121,7 @@ class VaultFolderBrowserScreen extends StatelessWidget {
                         doc: doc,
                         color: category.color,
                         onDelete: () => vault.deleteDocument(doc.id, category.key),
+                        onRename: (newName) => vault.renameDocument(doc.id, category.key, newName),
                       ),
                     ),
                 ],
@@ -372,8 +374,14 @@ class _FileTile extends StatelessWidget {
   final VaultDocument doc;
   final Color color;
   final VoidCallback onDelete;
+  final ValueChanged<String> onRename;
 
-  const _FileTile({required this.doc, required this.color, required this.onDelete});
+  const _FileTile({
+    required this.doc,
+    required this.color,
+    required this.onDelete,
+    required this.onRename,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -387,30 +395,111 @@ class _FileTile extends StatelessWidget {
           BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 8, offset: const Offset(0, 3)),
         ],
       ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(8)),
-            child: Icon(Icons.insert_drive_file_outlined, color: color, size: 20),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(doc.fileName,
-                    maxLines: 1, overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5)),
-                const SizedBox(height: 2),
-                Text('${doc.extension.toUpperCase()} · ${(doc.size / 1024).toStringAsFixed(0)} KB',
-                    style: const TextStyle(fontSize: 11.5, color: AppColors.textSecondary)),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => _viewDoc(context),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(8)),
+              child: Icon(Icons.insert_drive_file_outlined, color: color, size: 20),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(doc.fileName,
+                      maxLines: 1, overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5)),
+                  const SizedBox(height: 2),
+                  Text('${doc.extension.toUpperCase()} · ${(doc.size / 1024).toStringAsFixed(0)} KB',
+                      style: const TextStyle(fontSize: 11.5, color: AppColors.textSecondary)),
+                ],
+              ),
+            ),
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.more_vert, color: AppColors.textSecondary, size: 20),
+              onSelected: (value) {
+                switch (value) {
+                  case 'view':
+                    _viewDoc(context);
+                    break;
+                  case 'edit':
+                    _renameDialog(context);
+                    break;
+                  case 'delete':
+                    _confirmDelete(context);
+                    break;
+                }
+              },
+              itemBuilder: (context) => const [
+                PopupMenuItem(
+                  value: 'view',
+                  child: Row(children: [
+                    Icon(Icons.visibility_outlined, size: 18, color: Colors.black87),
+                    SizedBox(width: 8),
+                    Text('View'),
+                  ]),
+                ),
+                PopupMenuItem(
+                  value: 'edit',
+                  child: Row(children: [
+                    Icon(Icons.edit_outlined, size: 18, color: Colors.black87),
+                    SizedBox(width: 8),
+                    Text('Rename'),
+                  ]),
+                ),
+                PopupMenuItem(
+                  value: 'delete',
+                  child: Row(children: [
+                    Icon(Icons.delete_outline, size: 18, color: AppColors.coral),
+                    SizedBox(width: 8),
+                    Text('Delete', style: TextStyle(color: AppColors.coral)),
+                  ]),
+                ),
               ],
             ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.delete_outline, color: AppColors.coral, size: 20),
-            onPressed: () => _confirmDelete(context),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _viewDoc(BuildContext context) async {
+    final uri = Uri.tryParse(doc.url);
+    if (uri == null || !await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not open file')),
+        );
+      }
+    }
+  }
+
+  void _renameDialog(BuildContext context) {
+    final controller = TextEditingController(text: doc.fileName);
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Rename file'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(border: OutlineInputBorder()),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () {
+              final newName = controller.text.trim();
+              Navigator.pop(context);
+              if (newName.isNotEmpty && newName != doc.fileName) {
+                onRename(newName);
+              }
+            },
+            child: const Text('Save'),
           ),
         ],
       ),
