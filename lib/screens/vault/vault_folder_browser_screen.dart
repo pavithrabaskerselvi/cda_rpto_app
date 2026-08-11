@@ -10,7 +10,8 @@ import '../../providers/vault_provider.dart';
 import 'vault_bulk_import_screen.dart';
 
 /// Generic, any-depth folder browser for Vault categories flagged with
-/// VaultCategory.supportsSubfolders (currently only Audit Files).
+/// VaultCategory.supportsSubfolders (now every category — same New
+/// Folder + Add Files flow everywhere in the RPTO Vault).
 /// Pushed onto itself recursively as the user drills into subfolders —
 /// each push just carries a deeper [folderPath].
 class VaultFolderBrowserScreen extends StatelessWidget {
@@ -47,11 +48,17 @@ class VaultFolderBrowserScreen extends StatelessWidget {
       body: StreamBuilder<List<VaultSubfolder>>(
         stream: vault.watchSubfolders(category.key, folderPath),
         builder: (context, folderSnap) {
+          if (folderSnap.hasError) {
+            return _StreamErrorView(error: folderSnap.error, color: category.color);
+          }
           final subfolders = folderSnap.data ?? [];
 
           return StreamBuilder<List<VaultDocument>>(
             stream: vault.watchCategoryPath(category.key, folderPath),
             builder: (context, fileSnap) {
+              if (fileSnap.hasError) {
+                return _StreamErrorView(error: fileSnap.error, color: category.color);
+              }
               final loading = folderSnap.connectionState == ConnectionState.waiting ||
                   fileSnap.connectionState == ConnectionState.waiting;
               if (loading && subfolders.isEmpty && (fileSnap.data ?? []).isEmpty) {
@@ -206,14 +213,34 @@ class VaultFolderBrowserScreen extends StatelessWidget {
         FirebaseAuth.instance.currentUser?.uid ??
         'unknown';
 
-    final ok = await vault.createSubfolder(
-      categoryKey: category.key,
-      parentPath: folderPath,
-      name: trimmed,
-      createdBy: createdBy,
-    );
+    bool ok = false;
+    Object? error;
+    try {
+      ok = await vault.createSubfolder(
+        categoryKey: category.key,
+        parentPath: folderPath,
+        name: trimmed,
+        createdBy: createdBy,
+      );
+    } catch (e) {
+      error = e;
+    }
 
     if (dialogContext.mounted) Navigator.pop(dialogContext);
+
+    if (error != null && screenContext.mounted) {
+      showDialog(
+        context: screenContext,
+        builder: (_) => AlertDialog(
+          title: const Text('Could not create folder'),
+          content: SelectableText(error.toString(), style: const TextStyle(fontSize: 12)),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(screenContext), child: const Text('OK')),
+          ],
+        ),
+      );
+      return;
+    }
 
     if (!ok && screenContext.mounted) {
       ScaffoldMessenger.of(screenContext).showSnackBar(
@@ -294,6 +321,45 @@ class _FolderTile extends StatelessWidget {
             IconButton(
               icon: const Icon(Icons.delete_outline, color: AppColors.coral, size: 20),
               onPressed: onDelete,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _StreamErrorView extends StatelessWidget {
+  final Object? error;
+  final Color color;
+
+  const _StreamErrorView({required this.error, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    final message = error.toString();
+    // Firestore's "failed-precondition" error for a missing composite
+    // index embeds a direct https://console.firebase.google.com/... link
+    // that auto-creates the exact index this query needs. Surface the
+    // raw message (instead of swallowing it) so that link is visible and
+    // selectable — copy it into a browser tab to fix this in one click.
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.error_outline, color: AppColors.coral, size: 40),
+            const SizedBox(height: 12),
+            const Text(
+              'Could not load this folder',
+              style: TextStyle(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 8),
+            SelectableText(
+              message,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
             ),
           ],
         ),

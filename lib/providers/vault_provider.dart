@@ -13,7 +13,7 @@ import '../models/vault_subfolder_model.dart';
 const String kVaultCollection = 'vault_documents';
 
 /// Firestore collection holding user-created subfolders for categories
-/// with VaultCategory.supportsSubfolders (currently only 'audit_files').
+/// with VaultCategory.supportsSubfolders (now every Vault category).
 const String kVaultSubfoldersCollection = 'vault_subfolders';
 
 /// Loads category tile counts for the Vault home screen, fetches the
