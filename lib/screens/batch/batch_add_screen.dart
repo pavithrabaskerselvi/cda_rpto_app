@@ -21,7 +21,6 @@ class _AddBatchScreenState extends State<AddBatchScreen> {
   final TextEditingController _targetSimulatorHoursController = TextEditingController();
   final TextEditingController _feeAmountController = TextEditingController();
 
-  String? _selectedInstructor;
   String _selectedStatus = 'Upcoming';
   String _selectedCategory = 'RPC';
   DateTime? _startDate;
@@ -187,22 +186,11 @@ class _AddBatchScreenState extends State<AddBatchScreen> {
       return;
     }
 
-    if (_selectedInstructor == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please select an instructor'),
-          backgroundColor: Colors.redAccent,
-        ),
-      );
-      return;
-    }
-
     setState(() => _isSaving = true);
 
     try {
       await FirebaseFirestore.instance.collection('batches').add({
         'batchName': _batchNameController.text.trim(),
-        'instructor': _selectedInstructor,
         'studentCount': int.tryParse(_studentCountController.text.trim()) ?? 0,
         'status': _selectedStatus,
         'category': _selectedCategory,
@@ -324,42 +312,6 @@ class _AddBatchScreenState extends State<AddBatchScreen> {
             ),
             const SizedBox(height: 16),
 
-            // Instructor dropdown - pulled from Firestore 'instructors' collection
-            StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection('instructors')
-                  .orderBy('name')
-                  .snapshots(),
-              builder: (context, snapshot) {
-                final instructorNames = <String>[];
-                if (snapshot.hasData) {
-                  for (final doc in snapshot.data!.docs) {
-                    final data = doc.data() as Map<String, dynamic>;
-                    final name = data['name'];
-                    if (name != null) instructorNames.add(name.toString());
-                  }
-                }
-
-                return DropdownButtonFormField<String>(
-                  initialValue: _selectedInstructor,
-                  dropdownColor: _kSurface(context),
-                  style: TextStyle(color: _kTextPrimary(context)),
-                  decoration: _inputDecoration(context, 'Instructor', icon: Icons.person_outline),
-                  items: instructorNames
-                      .map((name) => DropdownMenuItem(
-                    value: name,
-                    child: Text(name),
-                  ))
-                      .toList(),
-                  onChanged: (value) {
-                    setState(() => _selectedInstructor = value);
-                  },
-                  validator: (value) =>
-                  value == null ? 'Please select an instructor' : null,
-                );
-              },
-            ),
-            const SizedBox(height: 16),
 
             TextFormField(
               controller: _locationController,

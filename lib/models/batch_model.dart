@@ -4,8 +4,8 @@ class BatchModel {
   final String id;
   final String batchName;
   final String courseType; // e.g. "RPAS Basic", "RPAS Advanced"
-  final String instructorId;
-  final String instructorName;
+  // NOTE: instructor moved to StudentModel — instructor varies per student,
+  // not per batch, so it no longer lives here.
   final String companyId;
   final String companyName;
   final DateTime startDate;
@@ -19,8 +19,6 @@ class BatchModel {
     required this.id,
     required this.batchName,
     required this.courseType,
-    required this.instructorId,
-    required this.instructorName,
     required this.companyId,
     required this.companyName,
     required this.startDate,
@@ -36,8 +34,6 @@ class BatchModel {
       id: documentId,
       batchName: map['batchName'] ?? '',
       courseType: map['courseType'] ?? '',
-      instructorId: map['instructorId'] ?? '',
-      instructorName: map['instructorName'] ?? '',
       companyId: map['companyId'] ?? '',
       companyName: map['companyName'] ?? '',
       startDate: map['startDate'] != null
@@ -66,8 +62,6 @@ class BatchModel {
     return {
       'batchName': batchName,
       'courseType': courseType,
-      'instructorId': instructorId,
-      'instructorName': instructorName,
       'companyId': companyId,
       'companyName': companyName,
       'startDate': Timestamp.fromDate(startDate),
@@ -82,8 +76,6 @@ class BatchModel {
   BatchModel copyWith({
     String? batchName,
     String? courseType,
-    String? instructorId,
-    String? instructorName,
     String? companyId,
     String? companyName,
     DateTime? startDate,
@@ -96,8 +88,6 @@ class BatchModel {
       id: id,
       batchName: batchName ?? this.batchName,
       courseType: courseType ?? this.courseType,
-      instructorId: instructorId ?? this.instructorId,
-      instructorName: instructorName ?? this.instructorName,
       companyId: companyId ?? this.companyId,
       companyName: companyName ?? this.companyName,
       startDate: startDate ?? this.startDate,

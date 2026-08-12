@@ -28,6 +28,7 @@ class _StudentAddScreenState extends State<StudentAddScreen> {
 
   String? _batchId;
   String? _batchName;
+  String? _instructorName;
   String _status = 'Active';
   String? _companyId;
   String? _companyName;
@@ -119,6 +120,11 @@ class _StudentAddScreenState extends State<StudentAddScreen> {
           .showSnackBar(const SnackBar(content: Text('Select date of birth')));
       return;
     }
+    if (_instructorName == null) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Select an instructor')));
+      return;
+    }
 
     setState(() => _saving = true);
 
@@ -134,6 +140,7 @@ class _StudentAddScreenState extends State<StudentAddScreen> {
         dateOfBirth: _dateOfBirth,
         batchId: _batchId!,
         batchName: _batchName ?? '',
+        instructorName: _instructorName ?? '',
         companyId: _companyId ?? '',
         companyName: _companyName ?? '',
         status: _status,
@@ -292,6 +299,34 @@ class _StudentAddScreenState extends State<StudentAddScreen> {
                       });
                     },
                     validator: (v) => v == null ? 'Select a batch' : null,
+                  );
+                },
+              ),
+              const SizedBox(height: 14),
+              StreamBuilder<QuerySnapshot>(
+                stream: FirebaseFirestore.instance
+                    .collection('instructors')
+                    .orderBy('name')
+                    .snapshots(),
+                builder: (context, snapshot) {
+                  if (!snapshot.hasData) {
+                    return LinearProgressIndicator(color: teal);
+                  }
+                  final names = snapshot.data!.docs
+                      .map((d) => (d.data() as Map<String, dynamic>)['name'])
+                      .where((n) => n != null)
+                      .map((n) => n.toString())
+                      .toList();
+                  return DropdownButtonFormField<String>(
+                    initialValue: names.contains(_instructorName) ? _instructorName : null,
+                    dropdownColor: _surface(context),
+                    style: TextStyle(color: _textPrimary(context)),
+                    decoration: _decoration(context, 'Instructor *'),
+                    items: names
+                        .map((n) => DropdownMenuItem(value: n, child: Text(n)))
+                        .toList(),
+                    onChanged: (v) => setState(() => _instructorName = v),
+                    validator: (v) => v == null ? 'Select an instructor' : null,
                   );
                 },
               ),

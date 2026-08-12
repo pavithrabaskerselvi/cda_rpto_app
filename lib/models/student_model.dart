@@ -10,6 +10,8 @@ class StudentModel {
   final DateTime? dateOfBirth; // NEW (replaces place)
   final String batchId;
   final String batchName;
+  final String instructorId; // moved here from BatchModel - varies per student
+  final String instructorName; // moved here from BatchModel - varies per student
   final String companyId;
   final String companyName;
   final String status; // "Active", "Completed", "Dropped"
@@ -27,6 +29,8 @@ class StudentModel {
     this.dateOfBirth, // NEW
     required this.batchId,
     required this.batchName,
+    this.instructorId = '',
+    this.instructorName = '',
     required this.companyId,
     required this.companyName,
     required this.status,
@@ -48,6 +52,8 @@ class StudentModel {
           : null, // NEW
       batchId: map['batchId'] ?? '',
       batchName: map['batchName'] ?? '',
+      instructorId: map['instructorId'] ?? '',
+      instructorName: map['instructorName'] ?? '',
       companyId: map['companyId'] ?? '',
       companyName: map['companyName'] ?? '',
       status: map['status'] ?? 'Active',
@@ -79,6 +85,8 @@ class StudentModel {
       dateOfBirth != null ? Timestamp.fromDate(dateOfBirth!) : null, // NEW
       'batchId': batchId,
       'batchName': batchName,
+      'instructorId': instructorId,
+      'instructorName': instructorName,
       'companyId': companyId,
       'companyName': companyName,
       'status': status,
@@ -97,6 +105,8 @@ class StudentModel {
     DateTime? dateOfBirth, // NEW
     String? batchId,
     String? batchName,
+    String? instructorId,
+    String? instructorName,
     String? companyId,
     String? companyName,
     String? status,
@@ -113,6 +123,8 @@ class StudentModel {
       dateOfBirth: dateOfBirth ?? this.dateOfBirth, // NEW
       batchId: batchId ?? this.batchId,
       batchName: batchName ?? this.batchName,
+      instructorId: instructorId ?? this.instructorId,
+      instructorName: instructorName ?? this.instructorName,
       companyId: companyId ?? this.companyId,
       companyName: companyName ?? this.companyName,
       status: status ?? this.status,

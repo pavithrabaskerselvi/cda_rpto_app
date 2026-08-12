@@ -227,7 +227,6 @@ class _BulkBatchSetupScreenState extends State<BulkBatchSetupScreen> {
         if (isFirstChunk) {
           writeBatch.set(batchDocRef, {
             'batchName': _batchNameController.text.trim(),
-            'instructor': _selectedInstructor,
             'studentCount': names.length,
             'status': _selectedStatus,
             'category': _selectedCategory,
@@ -255,6 +254,7 @@ class _BulkBatchSetupScreenState extends State<BulkBatchSetupScreen> {
             'place': '',
             'batchId': batchDocRef.id,
             'batchName': _batchNameController.text.trim(),
+            'instructorName': _selectedInstructor,
             'companyId': '',
             'companyName': '',
             'status': 'Active',
@@ -407,7 +407,7 @@ class _BulkBatchSetupScreenState extends State<BulkBatchSetupScreen> {
                   initialValue: _selectedInstructor,
                   dropdownColor: _kSurface(context),
                   style: TextStyle(color: _kTextPrimary(context)),
-                  decoration: _inputDecoration(context, 'Instructor', icon: Icons.person_outline),
+                  decoration: _inputDecoration(context, 'Instructor (applied to all pasted students)', icon: Icons.person_outline),
                   items: instructorNames
                       .map((name) => DropdownMenuItem(value: name, child: Text(name)))
                       .toList(),

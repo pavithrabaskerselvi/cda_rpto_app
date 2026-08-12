@@ -155,6 +155,8 @@ class StudentInfoTab extends StatelessWidget {
                 Divider(color: ThemeColors.divider(context)),
                 _infoRow(context, 'Batch', student.batchName),
                 Divider(color: ThemeColors.divider(context)),
+                _infoRow(context, 'Instructor', student.instructorName),
+                Divider(color: ThemeColors.divider(context)),
                 _infoRow(context, 'Company', student.companyName),
                 Divider(color: ThemeColors.divider(context)),
                 _infoRow(

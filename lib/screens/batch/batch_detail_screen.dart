@@ -41,7 +41,6 @@ class _BatchDetailScreenState extends State<BatchDetailScreen>
   late TextEditingController _targetSimulatorHoursController;
   late TextEditingController _feeAmountController;
 
-  String? _selectedInstructor;
   String? _selectedDrone;
   String _selectedStatus = 'Upcoming';
   String _selectedCategory = 'RPC';
@@ -115,7 +114,6 @@ class _BatchDetailScreenState extends State<BatchDetailScreen>
     if (_initialized) return;
     _batchNameController.text = data['batchName'] ?? '';
     _studentCountController.text = (data['studentCount'] ?? '').toString();
-    _selectedInstructor = data['instructor'];
     _selectedDrone = data['drone'];
     _selectedStatus = data['status'] ?? 'Upcoming';
     _startDate = data['startDate'] != null
@@ -289,7 +287,6 @@ class _BatchDetailScreenState extends State<BatchDetailScreen>
           .doc(widget.batchId)
           .update({
         'batchName': _batchNameController.text.trim(),
-        'instructor': _selectedInstructor,
         'drone': _selectedDrone,
         'studentCount': int.tryParse(_studentCountController.text.trim()) ?? 0,
         'status': _selectedStatus,
@@ -663,46 +660,6 @@ class _BatchDetailScreenState extends State<BatchDetailScreen>
               ),
               const SizedBox(height: 16),
 
-              _isEditing
-                  ? StreamBuilder<QuerySnapshot>(
-                stream: FirebaseFirestore.instance
-                    .collection('instructors')
-                    .orderBy('name')
-                    .snapshots(),
-                builder: (context, snap) {
-                  final names = <String>[];
-                  if (snap.hasData) {
-                    for (final doc in snap.data!.docs) {
-                      final d = doc.data() as Map<String, dynamic>;
-                      if (d['name'] != null) names.add(d['name'].toString());
-                    }
-                  }
-                  if (_selectedInstructor != null &&
-                      !names.contains(_selectedInstructor)) {
-                    names.add(_selectedInstructor!);
-                  }
-                  return DropdownButtonFormField<String>(
-                    initialValue: _selectedInstructor,
-                    dropdownColor: _kSurface(context),
-                    style: TextStyle(color: _kTextPrimary(context)),
-                    decoration:
-                    _inputDecoration(context, 'Instructor', icon: Icons.person_outline),
-                    items: names
-                        .map((n) => DropdownMenuItem(value: n, child: Text(n)))
-                        .toList(),
-                    onChanged: (v) => setState(() => _selectedInstructor = v),
-                    validator: (v) => v == null ? 'Please select an instructor' : null,
-                  );
-                },
-              )
-                  : TextFormField(
-                enabled: false,
-                style: TextStyle(color: _kTextPrimary(context)),
-                decoration: _inputDecoration(context, 'Instructor', icon: Icons.person_outline)
-                    .copyWith(hintText: _selectedInstructor),
-                controller: TextEditingController(text: _selectedInstructor ?? '-'),
-              ),
-              const SizedBox(height: 16),
 
               _isEditing
                   ? StreamBuilder<QuerySnapshot>(
@@ -1099,7 +1056,12 @@ class _BatchDetailScreenState extends State<BatchDetailScreen>
                             : student.name,
                         style: TextStyle(color: _kTextPrimary(context), fontWeight: FontWeight.w600),
                       ),
-                      subtitle: Text(student.status, style: TextStyle(color: _kTextSecondary(context))),
+                      subtitle: Text(
+                        student.instructorName.isNotEmpty
+                            ? '${student.status} • Instructor: ${student.instructorName}'
+                            : student.status,
+                        style: TextStyle(color: _kTextSecondary(context)),
+                      ),
                       trailing: Icon(Icons.chevron_right, color: _kTextSecondary(context)),
                       onTap: () {
                         Navigator.push(
@@ -1144,13 +1106,12 @@ class _BatchDetailScreenState extends State<BatchDetailScreen>
 
     final buffer = StringBuffer();
     buffer.writeln('Batch Report: ${data['batchName'] ?? ''}');
-    buffer.writeln('Instructor: ${data['instructor'] ?? '-'}');
     buffer.writeln('Status: ${data['status'] ?? '-'}');
     buffer.writeln('Total Students: ${students.length}');
     buffer.writeln();
-    buffer.writeln('Name,Status,Phone');
+    buffer.writeln('Name,Status,Phone,Instructor');
     for (final s in students) {
-      buffer.writeln('${s.name},${s.status},${s.phone}');
+      buffer.writeln('${s.name},${s.status},${s.phone},${s.instructorName}');
     }
 
     if (!context.mounted) return;

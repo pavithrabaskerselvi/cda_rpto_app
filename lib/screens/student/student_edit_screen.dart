@@ -23,6 +23,7 @@ class _StudentEditScreenState extends State<StudentEditScreen> {
   late String _status;
   String? _batchId;
   String? _batchName;
+  String? _instructorName;
   String? _companyId;
   String? _companyName;
   DateTime? _enrollmentDate;
@@ -43,6 +44,7 @@ class _StudentEditScreenState extends State<StudentEditScreen> {
     _status = s.status;
     _batchId = s.batchId;
     _batchName = s.batchName;
+    _instructorName = s.instructorName.isNotEmpty ? s.instructorName : null;
     _companyId = s.companyId;
     _companyName = s.companyName;
     _enrollmentDate = s.enrollmentDate;
@@ -109,6 +111,11 @@ class _StudentEditScreenState extends State<StudentEditScreen> {
           .showSnackBar(const SnackBar(content: Text('Select date of birth')));
       return;
     }
+    if (_instructorName == null) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Select an instructor')));
+      return;
+    }
     setState(() => _saving = true);
 
     try {
@@ -121,6 +128,7 @@ class _StudentEditScreenState extends State<StudentEditScreen> {
         dateOfBirth: _dateOfBirth,
         batchId: _batchId,
         batchName: _batchName,
+        instructorName: _instructorName,
         companyId: _companyId,
         companyName: _companyName,
         status: _status,
@@ -272,6 +280,33 @@ class _StudentEditScreenState extends State<StudentEditScreen> {
                       });
                     },
                     validator: (v) => v == null ? 'Select a batch' : null,
+                  );
+                },
+              ),
+              const SizedBox(height: 14),
+              StreamBuilder<QuerySnapshot>(
+                stream: FirebaseFirestore.instance
+                    .collection('instructors')
+                    .orderBy('name')
+                    .snapshots(),
+                builder: (context, snapshot) {
+                  if (!snapshot.hasData) return const LinearProgressIndicator(color: kTeal);
+                  final names = snapshot.data!.docs
+                      .map((d) => (d.data() as Map<String, dynamic>)['name'])
+                      .where((n) => n != null)
+                      .map((n) => n.toString())
+                      .toList();
+                  if (_instructorName != null && !names.contains(_instructorName)) {
+                    names.add(_instructorName!);
+                  }
+                  return DropdownButtonFormField<String>(
+                    initialValue: names.contains(_instructorName) ? _instructorName : null,
+                    dropdownColor: ThemeColors.surface(context),
+                    style: TextStyle(color: ThemeColors.textPrimary(context)),
+                    decoration: _decoration(context, 'Instructor *'),
+                    items: names.map((n) => DropdownMenuItem(value: n, child: Text(n))).toList(),
+                    onChanged: (v) => setState(() => _instructorName = v),
+                    validator: (v) => v == null ? 'Select an instructor' : null,
                   );
                 },
               ),
