@@ -43,11 +43,13 @@ dependencies:
   url_launcher: ^6.3.0
 
   # Document export (PDF / Excel)
-  pdf: ^3.11.1
-  printing: ^5.13.4
+
+
   excel: ^4.0.6
   path_provider: ^2.1.4
   share_plus: ^10.1.2
+  printing: ^5.13.4
+  pdf: ^3.11.1
 
   # Local on-device settings persistence (Dark Mode, Language, etc. —
   # Profile screen's ThemeProvider / LanguageProvider)

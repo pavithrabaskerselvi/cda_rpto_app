@@ -1,3 +1,4 @@
+// lib/services/cloudinary_upload_service.dart
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -59,8 +60,12 @@ class CloudinaryUploadService {
           folder: folder,
         );
       } catch (e) {
+        final reason = e is CloudinaryUploadException ? e.message : null;
         throw CloudinaryUploadException(
-          'Failed to upload "$fileName" after retry.',
+          reason != null
+              ? 'Failed to upload "$fileName" after retry: $reason'
+              : 'Failed to upload "$fileName" after retry.',
+          statusCode: e is CloudinaryUploadException ? e.statusCode : null,
           cause: e,
         );
       }
@@ -91,8 +96,23 @@ class CloudinaryUploadService {
     final response = await http.Response.fromStream(streamedResponse);
 
     if (response.statusCode != 200) {
+      // Cloudinary error bodies look like: {"error":{"message":"..."}}.
+      // Surface that instead of a generic status code so a size-cap
+      // rejection reads as "File size too large..." not just "(400)".
+      String? cloudinaryMessage;
+      try {
+        final decoded = jsonDecode(response.body);
+        if (decoded is Map && decoded['error'] is Map) {
+          cloudinaryMessage = decoded['error']['message'] as String?;
+        }
+      } catch (_) {
+        // Body wasn't JSON — fall through with no extra detail.
+      }
+
       throw CloudinaryUploadException(
-        'Cloudinary rejected "$fileName".',
+        cloudinaryMessage != null
+            ? 'Cloudinary rejected "$fileName": $cloudinaryMessage'
+            : 'Cloudinary rejected "$fileName".',
         statusCode: response.statusCode,
         cause: response.body,
       );

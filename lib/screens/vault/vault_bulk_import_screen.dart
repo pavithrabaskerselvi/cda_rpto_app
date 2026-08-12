@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 // the method name below if yours differs for non-PDF files.
 import 'package:cda_rpto/services/cloudinary_upload_service.dart';
 import 'package:cda_rpto/services/office_file_compressor_service.dart';
+import 'package:cda_rpto/services/pdf_compressor_service.dart';
 
 import '../../config/theme.dart';
 import '../../config/vault_categories.dart';
@@ -59,6 +60,7 @@ class VaultBulkImportScreen extends StatefulWidget {
 class _VaultBulkImportScreenState extends State<VaultBulkImportScreen> {
   final _cloudinary = CloudinaryUploadService();
   final _compressor = OfficeFileCompressorService();
+  final _pdfCompressor = PdfCompressorService();
 
   late VaultCategory _selectedCategory;
   final List<_ImportItem> _items = [];
@@ -111,6 +113,7 @@ class _VaultBulkImportScreenState extends State<VaultBulkImportScreen> {
         FirebaseAuth.instance.currentUser?.uid ??
         'unknown';
     final vault = context.read<VaultProvider>();
+    const cloudinaryCap = 10 * 1024 * 1024; // Free-plan raw/image cap
 
     for (final item in _items) {
       if (_cancelRequested) break;
@@ -126,11 +129,12 @@ class _VaultBulkImportScreenState extends State<VaultBulkImportScreen> {
       try {
         var bytesToUpload = item.file.bytes!;
 
-        // Course decks saved with full-resolution screenshots routinely
-        // land above Cloudinary's raw-file cap (10 MB on the free
-        // plan). Shrink embedded images client-side first so those
-        // uploads succeed on the first try instead of failing with a
-        // 400 the user then has to chase down manually.
+        // Course decks saved with full-resolution screenshots, and
+        // scanned PDFs saved at full-resolution DPI, routinely land
+        // above Cloudinary's raw-file cap (10 MB on the free plan).
+        // Shrink client-side first so those uploads succeed on the
+        // first try instead of failing with a 400 the user then has
+        // to chase down manually.
         if (_compressor.canCompress(item.file.name) &&
             bytesToUpload.length > 9 * 1024 * 1024) {
           setState(() => item.status = _ImportItemStatus.compressing);
@@ -138,6 +142,29 @@ class _VaultBulkImportScreenState extends State<VaultBulkImportScreen> {
             bytesToUpload,
             item.file.name,
           );
+        } else if (_pdfCompressor.canCompress(item.file.name) &&
+            bytesToUpload.length > 9 * 1024 * 1024) {
+          setState(() => item.status = _ImportItemStatus.compressing);
+          bytesToUpload = await _pdfCompressor.compressToBudget(
+            bytesToUpload,
+            item.file.name,
+          );
+        }
+
+        // Compression is best-effort — if the file is still over
+        // Cloudinary's hard cap after the best pass, fail fast with a
+        // clear reason instead of burning a network round trip on a
+        // 400 the user then has to decode themselves.
+        if (bytesToUpload.length > cloudinaryCap) {
+          final mb = (bytesToUpload.length / (1024 * 1024)).toStringAsFixed(1);
+          setState(() {
+            item.status = _ImportItemStatus.failed;
+            item.errorMessage =
+            'Still $mb MB after compression — exceeds Cloudinary\'s 10 MB '
+                'limit. Try splitting the PDF or compressing it further '
+                'before re-uploading.';
+          });
+          continue;
         }
 
         setState(() => item.status = _ImportItemStatus.uploading);
@@ -218,6 +245,8 @@ class _VaultBulkImportScreenState extends State<VaultBulkImportScreen> {
         return AppColors.green;
       case _ImportItemStatus.failed:
         return AppColors.coral;
+      default:
+        return AppColors.textSecondary;
     }
   }
 
