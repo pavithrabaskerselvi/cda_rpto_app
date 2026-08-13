@@ -264,6 +264,7 @@ class _BatchListScreenState extends State<BatchListScreen> {
                       final docId = docs[index].id;
 
                       final batchName = data['batchName'] ?? 'Unnamed Batch';
+                      final instructor = data['instructor'] ?? '-';
                       final studentCount = data['studentCount'] ?? 0;
                       final status = data['status'] ?? 'Upcoming';
                       final startDate = data['startDate'] != null
@@ -354,6 +355,9 @@ class _BatchListScreenState extends State<BatchListScreen> {
                                     color: _kBorder(context),
                                   ),
                                   const SizedBox(height: 14),
+                                  _infoRow(context, Icons.person_outline,
+                                      'Instructor: $instructor'),
+                                  const SizedBox(height: 8),
                                   _infoRow(context, Icons.groups_2_outlined,
                                       'Students: $studentCount'),
                                   if (startDate != null && endDate != null) ...[

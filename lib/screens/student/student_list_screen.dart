@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
+import '../../config/theme_colors.dart';
+import '../../providers/theme_provider.dart';
 import '../../models/student_model.dart';
 import 'student_detail_screen.dart';
 import 'student_add_screen.dart';
@@ -23,52 +26,29 @@ class _StudentListScreenState extends State<StudentListScreen> {
     super.dispose();
   }
 
-  // ---- Theme-aware colors: flip between dark/light based on current
-  // Theme brightness instead of hardcoded dark-only constants. ----
-  bool _isDark(BuildContext context) =>
-      Theme.of(context).brightness == Brightness.dark;
-
-  Color _pBackground(BuildContext c) =>
-      _isDark(c) ? const Color(0xFF05070D) : const Color(0xFFF5F7FA);
-  Color _pSurface(BuildContext c) =>
-      _isDark(c) ? const Color(0xFF10141F) : const Color(0xFFFFFFFF);
-  Color _pAccent(BuildContext c) =>
-      _isDark(c) ? const Color(0xFF2DD4BF) : const Color(0xFF0E9488);
-  Color _pGold(BuildContext c) =>
-      _isDark(c) ? const Color(0xFFC9A24B) : const Color(0xFFA9822F);
-  Color _pTextPrimary(BuildContext c) =>
-      _isDark(c) ? const Color(0xFFF5F6FA) : const Color(0xFF0B1220);
-  Color _pTextSecondary(BuildContext c) =>
-      _isDark(c) ? const Color(0xFF8A93A6) : const Color(0xFF5B6472);
-  Color _pTextMuted(BuildContext c) =>
-      _isDark(c) ? const Color(0xFF6B7280) : const Color(0xFF9AA3B2);
-  Color _pDanger(BuildContext c) =>
-      _isDark(c) ? const Color(0xFFE0685A) : const Color(0xFFC94A3B);
-  Color _pSuccess(BuildContext c) =>
-      _isDark(c) ? const Color(0xFF3FCE8E) : const Color(0xFF1F9D63);
-  Color _pAmber(BuildContext c) =>
-      _isDark(c) ? const Color(0xFFFFB020) : const Color(0xFFB77400);
-
-  Color _statusColor(BuildContext context, String status) {
+  Color _statusColor(CompanyColors c, String status) {
     switch (status) {
       case 'Active':
-        return _pSuccess(context);
+        return c.success;
       case 'Completed':
-        return _pAccent(context);
+        return c.accent;
       case 'Dropped':
-        return _pDanger(context);
+        return c.danger;
       default:
-        return _pAmber(context);
+        return c.gold;
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final isDark = context.watch<ThemeProvider>().isDarkMode;
+    final c = CompanyColors.of(isDark);
+
     return Scaffold(
-      backgroundColor: _pBackground(context),
+      backgroundColor: c.background,
       floatingActionButton: FloatingActionButton(
-        backgroundColor: _pAccent(context),
-        foregroundColor: _pBackground(context),
+        backgroundColor: c.accent,
+        foregroundColor: c.background,
         onPressed: () {
           Navigator.push(
             context,
@@ -80,16 +60,17 @@ class _StudentListScreenState extends State<StudentListScreen> {
       body: CustomScrollView(
         slivers: [
           SliverAppBar(
-            backgroundColor: _pBackground(context),
+            backgroundColor: c.background,
             pinned: true,
+            elevation: 0,
             leading: IconButton(
-              icon: Icon(Icons.arrow_back, color: _pTextPrimary(context)),
+              icon: Icon(Icons.arrow_back, color: c.textPrimary),
               onPressed: () => Navigator.pop(context),
             ),
             title: Text(
               'StudentList',
               style: GoogleFonts.plusJakartaSans(
-                  color: _pTextPrimary(context),
+                  color: c.textPrimary,
                   fontWeight: FontWeight.w800,
                   fontSize: 22),
             ),
@@ -100,9 +81,9 @@ class _StudentListScreenState extends State<StudentListScreen> {
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
-                    _pGold(context).withValues(alpha: 0.18),
-                    _pAccent(context).withValues(alpha: 0.12),
-                    _pBackground(context),
+                    c.gold.withValues(alpha: 0.18),
+                    c.accent.withValues(alpha: 0.12),
+                    c.background,
                   ],
                 ),
               ),
@@ -114,19 +95,16 @@ class _StudentListScreenState extends State<StudentListScreen> {
                 child: Column(
                   children: [
                     TextField(
-                      style: GoogleFonts.plusJakartaSans(
-                          color: _pTextPrimary(context)),
+                      style: GoogleFonts.plusJakartaSans(color: c.textPrimary),
                       onChanged: (v) =>
                           setState(() => _searchQuery = v.toLowerCase()),
                       decoration: InputDecoration(
                         hintText:
                         'Search roll no / name / email / phone / aadhaar...',
-                        hintStyle: GoogleFonts.plusJakartaSans(
-                            color: _pTextMuted(context)),
-                        prefixIcon:
-                        Icon(Icons.search, color: _pAccent(context)),
+                        hintStyle: GoogleFonts.plusJakartaSans(color: c.textSecondary),
+                        prefixIcon: Icon(Icons.search, color: c.accent),
                         filled: true,
-                        fillColor: _pSurface(context),
+                        fillColor: c.surface,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                           borderSide: BorderSide.none,
@@ -151,17 +129,17 @@ class _StudentListScreenState extends State<StudentListScreen> {
                             onSelected: (_) => setState(() {
                               _selectedStatus = s;
                             }),
-                            selectedColor: _pAccent(context),
-                            backgroundColor: _pSurface(context),
+                            selectedColor: c.accent,
+                            backgroundColor: c.surface,
                             labelStyle: GoogleFonts.plusJakartaSans(
-                              color: selected
-                                  ? _pBackground(context)
-                                  : _pTextSecondary(context),
+                              color: selected ? c.background : c.textSecondary,
                               fontWeight: FontWeight.w600,
                             ),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(20),
-                              side: BorderSide.none,
+                              side: BorderSide(
+                                color: selected ? c.accent : c.borderSubtle.withValues(alpha: 0.08),
+                              ),
                             ),
                           );
                         },
@@ -182,16 +160,13 @@ class _StudentListScreenState extends State<StudentListScreen> {
                 return SliverFillRemaining(
                   child: Center(
                     child: Text('Error: ${snapshot.error}',
-                        style: GoogleFonts.plusJakartaSans(
-                            color: _pTextPrimary(context))),
+                        style: GoogleFonts.plusJakartaSans(color: c.textPrimary)),
                   ),
                 );
               }
               if (!snapshot.hasData) {
                 return SliverFillRemaining(
-                  child: Center(
-                      child:
-                      CircularProgressIndicator(color: _pAccent(context))),
+                  child: Center(child: CircularProgressIndicator(color: c.accent)),
                 );
               }
 
@@ -218,7 +193,7 @@ class _StudentListScreenState extends State<StudentListScreen> {
                   child: Center(
                     child: Text('No students found',
                         style: GoogleFonts.plusJakartaSans(
-                            color: _pTextSecondary(context), fontSize: 16)),
+                            color: c.textSecondary, fontSize: 16)),
                   ),
                 );
               }
@@ -232,10 +207,10 @@ class _StudentListScreenState extends State<StudentListScreen> {
                       return Container(
                         margin: const EdgeInsets.only(bottom: 12),
                         decoration: BoxDecoration(
-                          color: _pSurface(context),
+                          color: c.surface,
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(
-                              color: _statusColor(context, student.status)
+                              color: _statusColor(c, student.status)
                                   .withValues(alpha: 0.3)),
                         ),
                         child: ListTile(
@@ -256,8 +231,8 @@ class _StudentListScreenState extends State<StudentListScreen> {
                               shape: BoxShape.circle,
                               gradient: LinearGradient(
                                 colors: [
-                                  _pGold(context).withValues(alpha: 0.7),
-                                  _pAccent(context).withValues(alpha: 0.6),
+                                  c.gold.withValues(alpha: 0.7),
+                                  c.accent.withValues(alpha: 0.6),
                                 ],
                                 begin: Alignment.topLeft,
                                 end: Alignment.bottomRight,
@@ -265,14 +240,13 @@ class _StudentListScreenState extends State<StudentListScreen> {
                             ),
                             child: CircleAvatar(
                               radius: 22,
-                              backgroundColor: _pBackground(context),
+                              backgroundColor: c.background,
                               child: Text(
                                 student.name.isNotEmpty
                                     ? student.name[0].toUpperCase()
                                     : '?',
                                 style: GoogleFonts.plusJakartaSans(
-                                    color: _pAccent(context),
-                                    fontWeight: FontWeight.w700),
+                                    color: c.accent, fontWeight: FontWeight.w700),
                               ),
                             ),
                           ),
@@ -281,9 +255,9 @@ class _StudentListScreenState extends State<StudentListScreen> {
                                 ? '${student.rollNo} • ${student.name}'
                                 : student.name,
                             style: GoogleFonts.plusJakartaSans(
-                                color: _pTextPrimary(context),
+                                color: c.textPrimary,
                                 fontWeight: FontWeight.w700,
-                                fontSize: 16),
+                                fontSize: 15),
                           ),
                           subtitle: Padding(
                             padding: const EdgeInsets.only(top: 4),
@@ -293,22 +267,21 @@ class _StudentListScreenState extends State<StudentListScreen> {
                                 student.phone,
                               ].join(' • '),
                               style: GoogleFonts.plusJakartaSans(
-                                  color: _pTextSecondary(context),
-                                  fontSize: 13),
+                                  color: c.textSecondary, fontSize: 13),
                             ),
                           ),
                           trailing: Container(
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 10, vertical: 5),
                             decoration: BoxDecoration(
-                              color: _statusColor(context, student.status)
+                              color: _statusColor(c, student.status)
                                   .withValues(alpha: 0.15),
                               borderRadius: BorderRadius.circular(20),
                             ),
                             child: Text(
                               student.status,
                               style: GoogleFonts.plusJakartaSans(
-                                color: _statusColor(context, student.status),
+                                color: _statusColor(c, student.status),
                                 fontWeight: FontWeight.w600,
                                 fontSize: 11,
                               ),

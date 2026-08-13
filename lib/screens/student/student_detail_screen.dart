@@ -6,7 +6,6 @@ import '../../models/student_model.dart';
 import 'student_edit_screen.dart';
 import 'student_info_tab.dart';
 import 'student_documents_tab.dart';
-import 'student_batch_history.dart';
 
 class StudentDetailScreen extends StatelessWidget {
   final StudentModel student;
@@ -48,7 +47,7 @@ class StudentDetailScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 3,
+      length: 2,
       child: Scaffold(
         backgroundColor: ThemeColors.bg(context),
         appBar: AppBar(
@@ -82,7 +81,6 @@ class StudentDetailScreen extends StatelessWidget {
             tabs: const [
               Tab(text: 'Info'),
               Tab(text: 'Documents'),
-              Tab(text: 'Batch History'),
             ],
           ),
         ),
@@ -90,7 +88,6 @@ class StudentDetailScreen extends StatelessWidget {
           children: [
             StudentInfoTab(student: student),
             StudentDocumentsTab(studentId: student.id),
-            StudentBatchHistory(student: student),
           ],
         ),
       ),

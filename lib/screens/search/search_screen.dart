@@ -1,7 +1,11 @@
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
 import '../../config/theme.dart';
+import '../../config/theme_colors.dart';
+import '../../providers/theme_provider.dart';
 import '../company/company_list_screen.dart';
 import '../drone/drone_list_screen.dart';
 import '../simulator/sim_list_screen.dart';
@@ -163,24 +167,28 @@ class _SearchScreenState extends State<SearchScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = context.watch<ThemeProvider>().isDarkMode;
+    final c = CompanyColors.of(isDark);
+
     return Scaffold(
-      backgroundColor: AppColors.surface,
+      backgroundColor: c.background,
       appBar: AppBar(
-        backgroundColor: AppColors.surface,
+        backgroundColor: c.background,
         elevation: 0,
+        iconTheme: IconThemeData(color: c.textPrimary),
         title: TextField(
           controller: _controller,
           autofocus: true,
           onChanged: _onChanged,
-          style: const TextStyle(color: AppColors.textPrimary),
+          style: GoogleFonts.plusJakartaSans(color: c.textPrimary),
           decoration: InputDecoration(
             hintText: 'Search Company, Drone, Student...',
-            hintStyle: const TextStyle(color: AppColors.textSecondary),
+            hintStyle: GoogleFonts.plusJakartaSans(color: c.textSecondary),
             border: InputBorder.none,
             suffixIcon: _controller.text.isEmpty
                 ? null
                 : IconButton(
-              icon: const Icon(Icons.clear, color: AppColors.textSecondary),
+              icon: Icon(Icons.clear, color: c.textSecondary),
               onPressed: () {
                 _controller.clear();
                 _onChanged('');
@@ -189,27 +197,27 @@ class _SearchScreenState extends State<SearchScreen> {
           ),
         ),
       ),
-      body: _buildBody(),
+      body: _buildBody(c),
     );
   }
 
-  Widget _buildBody() {
+  Widget _buildBody(CompanyColors c) {
     if (_query.isEmpty) {
-      return const Center(
+      return Center(
         child: Text(
           'Type to search across all modules',
-          style: TextStyle(color: AppColors.textSecondary),
+          style: GoogleFonts.plusJakartaSans(color: c.textSecondary),
         ),
       );
     }
     if (_loading) {
-      return const Center(child: CircularProgressIndicator(color: AppColors.blue));
+      return Center(child: CircularProgressIndicator(color: c.accent));
     }
     if (_results.isEmpty) {
       return Center(
         child: Text(
           'No results for "$_query"',
-          style: const TextStyle(color: AppColors.textSecondary),
+          style: GoogleFonts.plusJakartaSans(color: c.textSecondary),
         ),
       );
     }
@@ -225,7 +233,7 @@ class _SearchScreenState extends State<SearchScreen> {
               padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
               child: Text(
                 entry.key.toUpperCase(),
-                style: TextStyle(
+                style: GoogleFonts.plusJakartaSans(
                   color: module.color,
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
@@ -237,7 +245,7 @@ class _SearchScreenState extends State<SearchScreen> {
               leading: Icon(module.icon, color: module.color),
               title: Text(
                 doc[module.nameField]?.toString() ?? 'Untitled',
-                style: const TextStyle(color: AppColors.textPrimary),
+                style: GoogleFonts.plusJakartaSans(color: c.textPrimary),
               ),
               onTap: () => Navigator.push(
                 context,
