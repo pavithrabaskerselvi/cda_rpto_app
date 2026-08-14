@@ -1,10 +1,9 @@
-// lib/services/cloudinary_upload_service.dart
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 
-/// Thrown when a Cloudinary upload fails, including after the retry.
 class CloudinaryUploadException implements Exception {
   final String message;
   final int? statusCode;
@@ -17,17 +16,62 @@ class CloudinaryUploadException implements Exception {
       '${statusCode != null ? ' (status $statusCode)' : ''}';
 }
 
+/// Fires as request bytes are handed off to the network layer.
+/// [sent]/[total] are bytes. On Flutter Web this reflects bytes read
+/// from the source stream, not confirmed network transfer — the
+/// browser's XHR layer buffers before actually sending, so treat it as
+/// an approximation, not a byte-accurate transfer meter.
+typedef UploadProgressCallback = void Function(int sent, int total);
+
+/// A [http.BaseClient] wrapper that reports byte-level progress as the
+/// request body is read, by intercepting BaseRequest.finalize().
+class _ProgressClient extends http.BaseClient {
+  final http.Client _inner;
+  final UploadProgressCallback? onProgress;
+
+  _ProgressClient(this._inner, this.onProgress);
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    final byteStream = request.finalize();
+    final total = request.contentLength ?? 0;
+    var sent = 0;
+
+    final tracked = byteStream.transform(
+      StreamTransformer<List<int>, List<int>>.fromHandlers(
+        handleData: (chunk, sink) {
+          sent += chunk.length;
+          if (total > 0) onProgress?.call(sent, total);
+          sink.add(chunk);
+        },
+      ),
+    );
+
+    final streamedRequest = http.StreamedRequest(request.method, request.url)
+      ..headers.addAll(request.headers)
+      ..contentLength = total > 0 ? total : null;
+
+    unawaited(
+      tracked.listen(
+        streamedRequest.sink.add,
+        onDone: streamedRequest.sink.close,
+        onError: streamedRequest.sink.addError,
+        cancelOnError: true,
+      ).asFuture(),
+    );
+
+    return _inner.send(streamedRequest);
+  }
+
+  @override
+  void close() => _inner.close();
+}
+
 /// CloudinaryUploadService
 /// ------------------------
 /// Uploads a single PDF to Cloudinary via an unsigned upload preset and
 /// returns the resulting secure URL. Fails fast with a typed exception
 /// after one retry attempt.
-///
-/// ASSUMPTIONS:
-///   - Cloud name / upload preset match the existing CloudinaryService
-///     configuration (Settings -> Upload -> unsigned preset).
-///   - Delete is intentionally not implemented (requires a signed
-///     request with the API secret, which must not live in the client).
 class CloudinaryUploadService {
   static const String _cloudName = 'vmi67fhz';
   static const String _uploadPreset = 'rpto_unsigned';
@@ -35,29 +79,29 @@ class CloudinaryUploadService {
   static Uri get _uploadUrl =>
       Uri.parse('https://api.cloudinary.com/v1_1/$_cloudName/auto/upload');
 
-  /// Uploads one PDF's raw bytes and returns its Cloudinary secure URL.
-  ///
-  /// Retries exactly once if the first attempt fails (network error,
-  /// non-200 response, or malformed response body). If the retry also
-  /// fails, throws a [CloudinaryUploadException].
+  /// Uploads one file's raw bytes and returns its Cloudinary secure
+  /// URL. [onProgress] fires repeatedly during the upload with bytes
+  /// sent vs. total. Retries exactly once on failure.
   Future<String> uploadPdf({
     required Uint8List bytes,
     required String fileName,
     String folder = 'rpto_uploads',
+    UploadProgressCallback? onProgress,
   }) async {
     try {
       return await _attemptUpload(
         bytes: bytes,
         fileName: fileName,
         folder: folder,
+        onProgress: onProgress,
       );
     } catch (_) {
-      // First attempt failed — retry exactly once.
       try {
         return await _attemptUpload(
           bytes: bytes,
           fileName: fileName,
           folder: folder,
+          onProgress: onProgress,
         );
       } catch (e) {
         final reason = e is CloudinaryUploadException ? e.message : null;
@@ -76,8 +120,10 @@ class CloudinaryUploadService {
     required Uint8List bytes,
     required String fileName,
     required String folder,
+    UploadProgressCallback? onProgress,
   }) async {
     final http.StreamedResponse streamedResponse;
+    final client = _ProgressClient(http.Client(), onProgress);
     try {
       final request = http.MultipartRequest('POST', _uploadUrl)
         ..fields['upload_preset'] = _uploadPreset
@@ -85,29 +131,26 @@ class CloudinaryUploadService {
         ..files.add(
           http.MultipartFile.fromBytes('file', bytes, filename: fileName),
         );
-      streamedResponse = await request.send();
+      streamedResponse = await client.send(request);
     } catch (e) {
       throw CloudinaryUploadException(
         'Network error while uploading "$fileName".',
         cause: e,
       );
+    } finally {
+      client.close();
     }
 
     final response = await http.Response.fromStream(streamedResponse);
 
     if (response.statusCode != 200) {
-      // Cloudinary error bodies look like: {"error":{"message":"..."}}.
-      // Surface that instead of a generic status code so a size-cap
-      // rejection reads as "File size too large..." not just "(400)".
       String? cloudinaryMessage;
       try {
         final decoded = jsonDecode(response.body);
         if (decoded is Map && decoded['error'] is Map) {
           cloudinaryMessage = decoded['error']['message'] as String?;
         }
-      } catch (_) {
-        // Body wasn't JSON — fall through with no extra detail.
-      }
+      } catch (_) {}
 
       throw CloudinaryUploadException(
         cloudinaryMessage != null

@@ -3,8 +3,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-// Same upload service DroneBulkImportController already uses — adjust
-// the method name below if yours differs for non-PDF files.
 import 'package:cda_rpto/services/cloudinary_upload_service.dart';
 import 'package:cda_rpto/services/office_file_compressor_service.dart';
 import 'package:cda_rpto/services/pdf_compressor_service.dart';
@@ -20,24 +18,31 @@ class _ImportItem {
   _ImportItemStatus status;
   String? errorMessage;
 
-  _ImportItem({required this.file, this.status = _ImportItemStatus.pending, this.errorMessage});
+  /// 0.0–1.0, or null while indeterminate (e.g. PDF page rendering,
+  /// where total pages aren't known up front).
+  double? progress;
+
+  /// Short status line shown under the file name, e.g.
+  /// "Compressing (pass 2/3) — 14/40 images" or
+  /// "3.2 MB / 8.7 MB • ~4s left".
+  String? progressLabel;
+
+  _ImportItem({required this.file, this.status = _ImportItemStatus.pending});
 }
 
+String _formatMb(int bytes) => '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+
 /// Bulk-add screen for RPTO Vault: pick a category once, multi-select
-/// files, then upload the whole batch in one go — instead of adding
-/// files one at a time from VaultCategoryScreen.
+/// files, then upload the whole batch in one go.
 ///
 /// Usage:
 /// ```dart
 /// Navigator.push(context, MaterialPageRoute(
 ///   builder: (_) => const VaultBulkImportScreen(),
 /// ));
-/// // or pre-select a category, e.g. coming from VaultCategoryScreen:
 /// Navigator.push(context, MaterialPageRoute(
 ///   builder: (_) => VaultBulkImportScreen(initialCategoryKey: category.key),
 /// ));
-/// // or pre-select a category AND a subfolder inside it, e.g. coming
-/// // from VaultFolderBrowserScreen:
 /// Navigator.push(context, MaterialPageRoute(
 ///   builder: (_) => VaultBulkImportScreen(
 ///     initialCategoryKey: category.key,
@@ -47,8 +52,6 @@ class _ImportItem {
 /// ```
 class VaultBulkImportScreen extends StatefulWidget {
   final String? initialCategoryKey;
-  // Subfolder within the category to upload into, '' for the category
-  // root. Only meaningful for categories with supportsSubfolders: true.
   final String folderPath;
 
   const VaultBulkImportScreen({super.key, this.initialCategoryKey, this.folderPath = ''});
@@ -113,7 +116,7 @@ class _VaultBulkImportScreenState extends State<VaultBulkImportScreen> {
         FirebaseAuth.instance.currentUser?.uid ??
         'unknown';
     final vault = context.read<VaultProvider>();
-    const cloudinaryCap = 10 * 1024 * 1024; // Free-plan raw/image cap
+    const cloudinaryCap = 10 * 1024 * 1024;
 
     for (final item in _items) {
       if (_cancelRequested) break;
@@ -129,45 +132,65 @@ class _VaultBulkImportScreenState extends State<VaultBulkImportScreen> {
       try {
         var bytesToUpload = item.file.bytes!;
 
-        // Course decks saved with full-resolution screenshots, and
-        // scanned PDFs saved at full-resolution DPI, routinely land
-        // above Cloudinary's raw-file cap (10 MB on the free plan).
-        // Shrink client-side first so those uploads succeed on the
-        // first try instead of failing with a 400 the user then has
-        // to chase down manually.
         if (_compressor.canCompress(item.file.name) &&
             bytesToUpload.length > 9 * 1024 * 1024) {
-          setState(() => item.status = _ImportItemStatus.compressing);
+          setState(() {
+            item.status = _ImportItemStatus.compressing;
+            item.progress = 0.0;
+            item.progressLabel = 'Preparing…';
+          });
           bytesToUpload = await _compressor.compressToBudget(
             bytesToUpload,
             item.file.name,
+            onProgress: (progress, label) {
+              if (!mounted) return;
+              setState(() {
+                item.progress = progress;
+                item.progressLabel = label;
+              });
+            },
           );
         } else if (_pdfCompressor.canCompress(item.file.name) &&
             bytesToUpload.length > 9 * 1024 * 1024) {
-          setState(() => item.status = _ImportItemStatus.compressing);
+          setState(() {
+            item.status = _ImportItemStatus.compressing;
+            item.progress = null; // indeterminate — page total unknown
+            item.progressLabel = 'Preparing…';
+          });
           bytesToUpload = await _pdfCompressor.compressToBudget(
             bytesToUpload,
             item.file.name,
+            onProgress: (progress, label) {
+              if (!mounted) return;
+              setState(() {
+                item.progress = progress;
+                item.progressLabel = label;
+              });
+            },
           );
         }
 
-        // Compression is best-effort — if the file is still over
-        // Cloudinary's hard cap after the best pass, fail fast with a
-        // clear reason instead of burning a network round trip on a
-        // 400 the user then has to decode themselves.
         if (bytesToUpload.length > cloudinaryCap) {
-          final mb = (bytesToUpload.length / (1024 * 1024)).toStringAsFixed(1);
           setState(() {
             item.status = _ImportItemStatus.failed;
+            item.progress = null;
+            item.progressLabel = null;
             item.errorMessage =
-            'Still $mb MB after compression — exceeds Cloudinary\'s 10 MB '
-                'limit. Try splitting the PDF or compressing it further '
-                'before re-uploading.';
+            'Still ${_formatMb(bytesToUpload.length)} after compression — exceeds '
+                'Cloudinary\'s 10 MB limit. Try splitting the PDF or compressing '
+                'it further before re-uploading.';
           });
           continue;
         }
 
-        setState(() => item.status = _ImportItemStatus.uploading);
+        setState(() {
+          item.status = _ImportItemStatus.uploading;
+          item.progress = 0.0;
+          item.progressLabel = '0 MB / ${_formatMb(bytesToUpload.length)}';
+        });
+
+        final uploadStart = DateTime.now();
+        final totalBytes = bytesToUpload.length;
 
         final secureUrl = await _cloudinary.uploadPdf(
           bytes: bytesToUpload,
@@ -175,6 +198,24 @@ class _VaultBulkImportScreenState extends State<VaultBulkImportScreen> {
           folder: widget.folderPath.isEmpty
               ? 'rpto_vault/${_selectedCategory.key}'
               : 'rpto_vault/${_selectedCategory.key}/${widget.folderPath}',
+          onProgress: (sent, total) {
+            if (!mounted) return;
+            final elapsed = DateTime.now().difference(uploadStart).inMilliseconds;
+            String etaLabel = '';
+            if (elapsed > 300 && sent > 0) {
+              final bytesPerMs = sent / elapsed;
+              final remainingMs = ((total - sent) / bytesPerMs).round();
+              if (remainingMs > 0) {
+                final secondsLeft = (remainingMs / 1000).ceil();
+                etaLabel = ' • ~${secondsLeft}s left';
+              }
+            }
+            setState(() {
+              item.progress = total > 0 ? sent / total : null;
+              item.progressLabel =
+              '${_formatMb(sent)} / ${_formatMb(total == 0 ? totalBytes : total)}$etaLabel';
+            });
+          },
         );
 
         await vault.addDocument(
@@ -187,15 +228,23 @@ class _VaultBulkImportScreenState extends State<VaultBulkImportScreen> {
           folderPath: widget.folderPath,
         );
 
-        setState(() => item.status = _ImportItemStatus.success);
+        setState(() {
+          item.status = _ImportItemStatus.success;
+          item.progress = 1.0;
+          item.progressLabel = null;
+        });
       } on CloudinaryUploadException catch (e) {
         setState(() {
           item.status = _ImportItemStatus.failed;
+          item.progress = null;
+          item.progressLabel = null;
           item.errorMessage = e.message;
         });
       } catch (e) {
         setState(() {
           item.status = _ImportItemStatus.failed;
+          item.progress = null;
+          item.progressLabel = null;
           item.errorMessage = 'Upload failed: $e';
         });
       }
@@ -213,6 +262,8 @@ class _VaultBulkImportScreenState extends State<VaultBulkImportScreen> {
       if (item.status == _ImportItemStatus.failed) {
         item.status = _ImportItemStatus.pending;
         item.errorMessage = null;
+        item.progress = null;
+        item.progressLabel = null;
       }
     }
     _startUpload();
@@ -238,26 +289,12 @@ class _VaultBulkImportScreenState extends State<VaultBulkImportScreen> {
       case _ImportItemStatus.pending:
         return AppColors.textMuted;
       case _ImportItemStatus.compressing:
-        return AppColors.blue;
       case _ImportItemStatus.uploading:
         return AppColors.blue;
       case _ImportItemStatus.success:
         return AppColors.green;
       case _ImportItemStatus.failed:
         return AppColors.coral;
-      default:
-        return AppColors.textSecondary;
-    }
-  }
-
-  String? _statusLabel(_ImportItemStatus status) {
-    switch (status) {
-      case _ImportItemStatus.compressing:
-        return 'Compressing…';
-      case _ImportItemStatus.uploading:
-        return 'Uploading…';
-      default:
-        return null;
     }
   }
 
@@ -300,7 +337,6 @@ class _VaultBulkImportScreenState extends State<VaultBulkImportScreen> {
               ),
             ),
 
-          // ---- Category picker ----
           Padding(
             padding: const EdgeInsets.all(16),
             child: DropdownButtonFormField<VaultCategory>(
@@ -324,15 +360,12 @@ class _VaultBulkImportScreenState extends State<VaultBulkImportScreen> {
                 ),
               ))
                   .toList(),
-              // Locked once a specific subfolder was pre-selected — the
-              // folderPath only makes sense for that one category.
               onChanged: (_isUploading || widget.folderPath.isNotEmpty)
                   ? null
                   : (c) => setState(() => _selectedCategory = c!),
             ),
           ),
 
-          // ---- Pick files button ----
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: SizedBox(
@@ -370,7 +403,6 @@ class _VaultBulkImportScreenState extends State<VaultBulkImportScreen> {
             const SizedBox(height: 8),
           ],
 
-          // ---- File list ----
           Expanded(
             child: _items.isEmpty
                 ? const Center(
@@ -385,47 +417,93 @@ class _VaultBulkImportScreenState extends State<VaultBulkImportScreen> {
               separatorBuilder: (_, __) => const SizedBox(height: 6),
               itemBuilder: (context, index) {
                 final item = _items[index];
+                final showProgressBar =
+                    item.status == _ImportItemStatus.compressing ||
+                        item.status == _ImportItemStatus.uploading;
+
                 return Container(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(color: AppColors.border),
                   ),
-                  child: ListTile(
-                    dense: true,
-                    leading: Icon(_statusIcon(item.status), color: _statusColor(item.status)),
-                    title: Text(
-                      item.file.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                    ),
-                    subtitle: item.errorMessage != null
-                        ? Text(
-                      item.errorMessage!,
-                      style: const TextStyle(fontSize: 11, color: AppColors.coral),
-                    )
-                        : _statusLabel(item.status) != null
-                        ? Text(
-                      _statusLabel(item.status)!,
-                      style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
-                    )
-                        : null,
-                    trailing: item.status == _ImportItemStatus.uploading ||
-                        item.status == _ImportItemStatus.compressing
-                        ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                        : null,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      ListTile(
+                        dense: true,
+                        leading:
+                        Icon(_statusIcon(item.status), color: _statusColor(item.status)),
+                        title: Text(
+                          item.file.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                        ),
+                        subtitle: item.errorMessage != null
+                            ? Text(
+                          item.errorMessage!,
+                          style: const TextStyle(fontSize: 11, color: AppColors.coral),
+                        )
+                            : item.progressLabel != null
+                            ? Text(
+                          item.progressLabel!,
+                          style: const TextStyle(
+                              fontSize: 11, color: AppColors.textSecondary),
+                        )
+                            : null,
+                        trailing: showProgressBar && item.progress == null
+                            ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                            : showProgressBar
+                            ? Text(
+                          '${((item.progress ?? 0) * 100).round()}%',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.blue,
+                          ),
+                        )
+                            : null,
+                      ),
+                      if (showProgressBar && item.progress != null)
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(4),
+                            child: LinearProgressIndicator(
+                              value: item.progress!.clamp(0.0, 1.0),
+                              minHeight: 5,
+                              backgroundColor: AppColors.border,
+                              valueColor:
+                              const AlwaysStoppedAnimation<Color>(AppColors.blue),
+                            ),
+                          ),
+                        )
+                      else if (showProgressBar)
+                        const Padding(
+                          padding: EdgeInsets.fromLTRB(16, 0, 16, 10),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.all(Radius.circular(4)),
+                            child: LinearProgressIndicator(
+                              minHeight: 5,
+                              backgroundColor: AppColors.border,
+                              valueColor:
+                              AlwaysStoppedAnimation<Color>(AppColors.blue),
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                 );
               },
             ),
           ),
 
-          // ---- Bottom action bar ----
           SafeArea(
             top: false,
             child: Padding(
