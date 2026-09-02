@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../screens/auth/login_screen.dart';
 import '../screens/auth/register_screen.dart';
 import '../screens/dashboard/dashboard_screen.dart';
+import '../screens/batch/batch_category_screen.dart';
 import '../screens/batch/batch_list_screen.dart';
 import '../screens/batch/batch_add_screen.dart';
 import '../screens/batch/batch_detail_screen.dart';
@@ -43,6 +44,15 @@ class AppRoutes {
   static const String studentAdd = '/student-add';
 
   // Batch
+  // batchCategory shows the course-category picker (RPC, Aerial
+  // Cinematography, FPV Pilot, FPV Build, Agri Build). This is now the
+  // main entry point from the dashboard/drawer.
+  static const String batchCategory = '/batch-category';
+  // batchList and batchAdd both take an optional String category
+  // argument (a value from kBatchCategories, e.g. 'RPC') to scope the
+  // screen to one course. Pass null / omit it to see/add across all
+  // categories. Because of this optional argument, both are handled in
+  // onGenerateRoute below rather than the plain `routes` map.
   static const String batchList = '/batch-list';
   static const String batchAdd = '/batch-add';
   static const String batchDetail = '/batch-detail';
@@ -88,8 +98,7 @@ class AppRoutes {
       login: (context) => const LoginScreen(),
       register: (context) => const RegisterScreen(),
       dashboard: (context) => const DashboardScreen(),
-      batchList: (context) => const BatchListScreen(),
-      batchAdd: (context) => const AddBatchScreen(),
+      batchCategory: (context) => const BatchCategoryScreen(),
       bulkBatchSetup: (context) => const BulkBatchSetupScreen(),
       vaultHome: (context) => const VaultHomeScreen(),
       employeeAccess: (context) => const EmployeeAccessScreen(),
@@ -106,6 +115,24 @@ class AppRoutes {
   /// access to RouteSettings.arguments.
   static Route<dynamic>? onGenerateRoute(RouteSettings settings) {
     switch (settings.name) {
+      case batchList:
+      // Optional String category (e.g. 'RPC') to scope the list to one
+      // course. Pass nothing / null to show every batch across every
+      // category.
+        final category = settings.arguments as String?;
+        return MaterialPageRoute(
+          builder: (_) => BatchListScreen(category: category),
+        );
+
+      case batchAdd:
+      // Optional String category to pre-select in the Category
+      // dropdown, e.g. when adding a batch from a category-scoped
+      // BatchListScreen.
+        final category = settings.arguments as String?;
+        return MaterialPageRoute(
+          builder: (_) => AddBatchScreen(initialCategory: category),
+        );
+
       case batchDetail:
         final batchId = settings.arguments as String?;
         if (batchId == null) {

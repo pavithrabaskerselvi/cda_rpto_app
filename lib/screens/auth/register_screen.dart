@@ -1,24 +1,33 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import '../../config/theme.dart';
 import '../../services/auth_service.dart';
+
 import '../../services/access_control_service.dart';
 import '../../widgets/custom_text_field.dart';
 
-// NOTE: If your project's `lib/config/constants.dart` already defines
-// kNavy / kTeal / kSurface, delete these locals and import that file
-// instead so this screen shares the exact tokens as login_screen.dart.
-const _kNavy = Color(0xFF050A14);
-const _kSurface = Color(0xFF0F1B2E);
-const _kTeal = Color(0xFF14B8A6);
+
+// ---------------------------------------------------------------------
+// BRIGHT / PREMIUM palette -- kept in sync with login_screen.dart so
+// both auth screens read as one continuous experience. Local to these
+// two screens only; the rest of the app stays on AppColors (dark navy).
+// ---------------------------------------------------------------------
+const _kAccent = Color(0xFF185FA5);
+const _kAccentDark = Color(0xFF0C447C);
+const _kAccentSoft = Color(0xFFE6F1FB);
+const _kCard = Colors.white;
+const _kTextDark = Color(0xFF0B2540);
+const _kTextMuted = Color(0xFF6B7A90);
+const _kError = Color(0xFFD64545);
+const _kBgFallback = Color(0xFFDDEEFC);
+const _kFieldBorder = Color(0xFFE2E8F0);
 
 // Same background photo used on login_screen.dart. Must match EXACTLY
 // what's registered under `flutter: assets:` in pubspec.yaml.
 const _kBgAssetPath = 'lib/assets/images/login_page.png';
 
 // Raw branch values stored in Firestore ('users/{uid}.branch') stay
-// 'Branch 1' / 'Branch 2' — this is what the reports module's
+// 'Branch 1' / 'Branch 2' -- this is what the reports module's
 // normalizeBranch()/filterByBranch() logic expects. Only the label shown
 // to the user changes here.
 const Map<String, String> _kBranchLabels = {
@@ -57,13 +66,8 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
 
   late final AnimationController _entranceCtrl = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 1000),
+    duration: const Duration(milliseconds: 900),
   )..forward();
-
-  late final AnimationController _ambientCtrl = AnimationController(
-    vsync: this,
-    duration: const Duration(seconds: 6),
-  )..repeat(reverse: true);
 
   Animation<double> _stagger(double start, double end) {
     return CurvedAnimation(
@@ -91,7 +95,6 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
     _emailFocus.dispose();
     _passwordFocus.dispose();
     _entranceCtrl.dispose();
-    _ambientCtrl.dispose();
     super.dispose();
   }
 
@@ -100,9 +103,9 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         behavior: SnackBarBehavior.floating,
-        backgroundColor: AppColors.coral,
+        backgroundColor: _kError,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        content: Text(message, style: const TextStyle(fontWeight: FontWeight.w600)),
+        content: Text(message, style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.white)),
       ),
     );
   }
@@ -161,28 +164,34 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _kNavy,
+      backgroundColor: _kBgFallback,
       extendBodyBehindAppBar: true,
+      // Mirrors login_screen.dart: no scrolling / no resize on keyboard.
+      // The card is scaled to fit the same proportional band instead,
+      // so both auth screens render at matching sizes.
+      resizeToAvoidBottomInset: false,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
+        iconTheme: const IconThemeData(color: _kAccentDark),
       ),
+      // ---------------------------------------------------------------
+      // UPDATED: swapped the old bottom-sheet layout (Align bottomCenter
+      // + fractional maxHeight + internal ScrollView) for the SAME
+      // proportional-band + FittedBox(scaleDown) approach used on
+      // login_screen.dart. topFlex/remainderFlex match the login screen
+      // exactly, so the two cards occupy the same band and get scaled
+      // down together -- the register card no longer grows taller than
+      // the login card.
+      // ---------------------------------------------------------------
       body: Stack(
         children: [
-          _AmbientBackground(controller: _ambientCtrl),
+          const _PhotoBackground(),
           SafeArea(
             child: LayoutBuilder(
               builder: (context, constraints) {
-                // Same fixed-top-edge layout as login_screen.dart, tuned to
-                // the same login_page.png photo: header/logo/title band ->
-                // one remaining band holding the card, top-aligned, so
-                // making the card taller only grows it DOWNWARD into what
-                // used to be empty space below — the top edge (set by
-                // topFlex) never moves. Keep topFlex in sync with
-                // login_screen.dart since both share one background image.
-                const topFlex = 38;
-                const remainderFlex = 62; // was middleFlex(32) + bottomFlex(13)
+                const topFlex = 46;
+                const remainderFlex = 54;
 
                 return SizedBox(
                   height: constraints.maxHeight,
@@ -192,317 +201,44 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
                       Expanded(
                         flex: remainderFlex,
                         child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
                           child: Align(
-                            // topCenter (not Center) pins the card's top
-                            // edge in place while letting it grow downward.
                             alignment: Alignment.topCenter,
-                            child: SingleChildScrollView(
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.topCenter,
                               child: ConstrainedBox(
-                                constraints: const BoxConstraints(maxWidth: 520),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 38),
-                                  decoration: BoxDecoration(
-                                    color: _kSurface.withValues(alpha: 0.96),
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-                                    boxShadow: [
-                                      BoxShadow(color: _kTeal.withValues(alpha: 0.10), blurRadius: 40, spreadRadius: 4),
-                                      BoxShadow(color: Colors.black.withValues(alpha: 0.4), blurRadius: 30, offset: const Offset(0, 12)),
-                                    ],
-                                  ),
-                                  child: Form(
-                                    key: _formKey,
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                                      children: [
-                                        // ---------- Header ----------
-                                        _FadeSlideIn(
-                                          animation: _stagger(0.0, 0.5),
-                                          child: Center(
-                                            child: Container(
-                                              width: 58,
-                                              height: 58,
-                                              alignment: Alignment.center,
-                                              decoration: BoxDecoration(
-                                                shape: BoxShape.circle,
-                                                gradient: const LinearGradient(
-                                                  begin: Alignment.topLeft,
-                                                  end: Alignment.bottomRight,
-                                                  colors: [_kTeal, Color(0xFF0D9488)],
-                                                ),
-                                                boxShadow: [
-                                                  BoxShadow(color: _kTeal.withValues(alpha: 0.4), blurRadius: 16, spreadRadius: 1),
-                                                ],
-                                              ),
-                                              child: const Icon(Icons.person_add_alt_1_rounded, size: 27, color: Colors.white),
-                                            ),
-                                          ),
-                                        ),
-                                        const SizedBox(height: 14),
-                                        _FadeSlideIn(
-                                          animation: _stagger(0.05, 0.55),
-                                          child: const Center(
-                                            child: Text(
-                                              'JOIN CDA RPTO',
-                                              style: TextStyle(
-                                                fontSize: 22,
-                                                fontWeight: FontWeight.w900,
-                                                letterSpacing: 0.6,
-                                                color: Colors.white,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                        const SizedBox(height: 6),
-                                        _FadeSlideIn(
-                                          animation: _stagger(0.08, 0.58),
-                                          child: const Center(
-                                            child: Text(
-                                              'Set up your training account in a few steps',
-                                              style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
-                                            ),
-                                          ),
-                                        ),
-                                        const SizedBox(height: 28),
-
-                                        // ---------- Section: Personal details ----------
-                                        _FadeSlideIn(
-                                          animation: _stagger(0.12, 0.6),
-                                          child: _sectionLabel(Icons.person_outline_rounded, 'Personal details'),
-                                        ),
-                                        const SizedBox(height: 20),
-                                        _FadeSlideIn(
-                                          animation: _stagger(0.15, 0.62),
-                                          child: _GlowField(
-                                            focusNode: _nameFocus,
-                                            child: CustomTextField(
-                                              controller: _nameController,
-                                              label: 'Full Name',
-                                              validator: (value) => (value == null || value.isEmpty) ? 'Name required' : null,
-                                            ),
-                                          ),
-                                        ),
-                                        const SizedBox(height: 22),
-                                        _FadeSlideIn(
-                                          animation: _stagger(0.18, 0.65),
-                                          child: _GlowField(
-                                            focusNode: _emailFocus,
-                                            child: CustomTextField(
-                                              controller: _emailController,
-                                              label: 'Email',
-                                              keyboardType: TextInputType.emailAddress,
-                                              validator: (value) {
-                                                if (value == null || value.isEmpty) return 'Email required';
-                                                if (!value.contains('@')) return 'Enter a valid email';
-                                                return null;
-                                              },
-                                            ),
-                                          ),
-                                        ),
-                                        const SizedBox(height: 38),
-                                        Divider(color: Colors.white.withValues(alpha: 0.08), height: 1),
-                                        const SizedBox(height: 34),
-
-                                        // ---------- Section: Security ----------
-                                        _FadeSlideIn(
-                                          animation: _stagger(0.22, 0.68),
-                                          child: _sectionLabel(Icons.lock_outline_rounded, 'Security'),
-                                        ),
-                                        const SizedBox(height: 20),
-                                        _FadeSlideIn(
-                                          animation: _stagger(0.25, 0.7),
-                                          child: _GlowField(
-                                            focusNode: _passwordFocus,
-                                            child: CustomTextField(
-                                              controller: _passwordController,
-                                              label: 'Password',
-                                              obscureText: _obscurePassword,
-                                              suffixIcon: IconButton(
-                                                icon: Icon(
-                                                  _obscurePassword ? Icons.visibility_off_rounded : Icons.visibility_rounded,
-                                                  color: AppColors.textSecondary,
-                                                ),
-                                                onPressed: () {
-                                                  setState(() => _obscurePassword = !_obscurePassword);
-                                                },
-                                              ),
-                                              validator: (value) {
-                                                if (value == null || value.isEmpty) return 'Password required';
-                                                if (value.length < 6) return 'Minimum 6 characters';
-                                                return null;
-                                              },
-                                            ),
-                                          ),
-                                        ),
-                                        const SizedBox(height: 10),
-                                        _FadeSlideIn(
-                                          animation: _stagger(0.27, 0.72),
-                                          child: const Text(
-                                            'Use at least 6 characters',
-                                            style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
-                                          ),
-                                        ),
-                                        const SizedBox(height: 38),
-                                        Divider(color: Colors.white.withValues(alpha: 0.08), height: 1),
-                                        const SizedBox(height: 34),
-
-                                        // ---------- Section: Role ----------
-                                        _FadeSlideIn(
-                                          animation: _stagger(0.3, 0.75),
-                                          child: _sectionLabel(Icons.badge_outlined, 'Your role'),
-                                        ),
-                                        const SizedBox(height: 20),
-                                        _FadeSlideIn(
-                                          animation: _stagger(0.33, 0.78),
-                                          child: Row(
-                                            children: _roles.map((role) {
-                                              final isSelected = _selectedRole == role['value'];
-                                              return Expanded(
-                                                child: GestureDetector(
-                                                  onTap: () => setState(() {
-                                                    _selectedRole = role['value'];
-                                                    if (!_requiresBranch) _selectedBranch = null;
-                                                  }),
-                                                  child: AnimatedContainer(
-                                                    duration: const Duration(milliseconds: 220),
-                                                    curve: Curves.easeOut,
-                                                    margin: const EdgeInsets.symmetric(horizontal: 6),
-                                                    padding: const EdgeInsets.symmetric(vertical: 24),
-                                                    decoration: BoxDecoration(
-                                                      color: isSelected ? _kTeal.withValues(alpha: 0.12) : _kSurface,
-                                                      borderRadius: BorderRadius.circular(10),
-                                                      border: Border.all(
-                                                        color: isSelected ? _kTeal : Colors.white.withValues(alpha: 0.08),
-                                                        width: isSelected ? 1.6 : 1,
-                                                      ),
-                                                      boxShadow: isSelected
-                                                          ? [BoxShadow(color: _kTeal.withValues(alpha: 0.25), blurRadius: 14, offset: const Offset(0, 4))]
-                                                          : [],
-                                                    ),
-                                                    child: Column(
-                                                      children: [
-                                                        Icon(
-                                                          role['icon'],
-                                                          color: isSelected ? _kTeal : AppColors.textSecondary,
-                                                          size: 30,
-                                                        ),
-                                                        const SizedBox(height: 12),
-                                                        Text(
-                                                          role['label'],
-                                                          style: TextStyle(
-                                                            fontSize: 14,
-                                                            fontWeight: FontWeight.w700,
-                                                            color: isSelected ? Colors.white : AppColors.textSecondary,
-                                                          ),
-                                                        ),
-                                                      ],
-                                                    ),
-                                                  ),
-                                                ),
-                                              );
-                                            }).toList(),
-                                          ),
-                                        ),
-
-                                        // ---------- Section: Branch (instructor / student only) ----------
-                                        AnimatedSize(
-                                          duration: const Duration(milliseconds: 260),
-                                          curve: Curves.easeOut,
-                                          alignment: Alignment.topCenter,
-                                          child: _requiresBranch
-                                              ? Column(
-                                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                                            children: [
-                                              const SizedBox(height: 28),
-                                              _FadeSlideIn(
-                                                animation: _stagger(0.36, 0.8),
-                                                child: Column(
-                                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                                  children: [
-                                                    const Text(
-                                                      'BRANCH',
-                                                      style: TextStyle(
-                                                        fontSize: 13.5,
-                                                        fontWeight: FontWeight.w800,
-                                                        letterSpacing: 1.6,
-                                                        color: AppColors.textSecondary,
-                                                      ),
-                                                    ),
-                                                    const SizedBox(height: 14),
-                                                    Container(
-                                                      padding: const EdgeInsets.symmetric(horizontal: 18),
-                                                      decoration: BoxDecoration(
-                                                        color: _kSurface,
-                                                        borderRadius: BorderRadius.circular(10),
-                                                        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-                                                      ),
-                                                      child: DropdownButtonHideUnderline(
-                                                        child: DropdownButton<String>(
-                                                          isExpanded: true,
-                                                          value: _selectedBranch,
-                                                          hint: const Text('Select branch', style: TextStyle(color: AppColors.textSecondary)),
-                                                          icon: const Icon(Icons.keyboard_arrow_down_rounded, color: _kTeal),
-                                                          dropdownColor: _kSurface,
-                                                          borderRadius: BorderRadius.circular(10),
-                                                          style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w600),
-                                                          items: _branches.map((branch) {
-                                                            return DropdownMenuItem<String>(
-                                                              value: branch, // raw value stays 'Branch 1' / 'Branch 2'
-                                                              child: Row(
-                                                                children: [
-                                                                  const Icon(Icons.apartment_rounded, size: 18, color: _kTeal),
-                                                                  const SizedBox(width: 10),
-                                                                  Text(_kBranchLabels[branch] ?? branch),
-                                                                ],
-                                                              ),
-                                                            );
-                                                          }).toList(),
-                                                          onChanged: (val) => setState(() => _selectedBranch = val),
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                            ],
-                                          )
-                                              : const SizedBox(width: double.infinity),
-                                        ),
-                                        const SizedBox(height: 42),
-
-                                        _FadeSlideIn(
-                                          animation: _stagger(0.4, 0.85),
-                                          child: _CreateAccountButton(isLoading: _isLoading, onPressed: _handleRegister),
-                                        ),
-                                        const SizedBox(height: 18),
-
-                                        _FadeSlideIn(
-                                          animation: _stagger(0.45, 0.9),
-                                          child: Center(
-                                            child: TextButton(
-                                              onPressed: () => Navigator.pop(context),
-                                              child: RichText(
-                                                text: const TextSpan(
-                                                  style: TextStyle(color: AppColors.textSecondary, fontSize: 15.5),
-                                                  children: [
-                                                    TextSpan(text: 'Already have an account?  '),
-                                                    TextSpan(text: 'Login', style: TextStyle(color: _kTeal, fontWeight: FontWeight.w800)),
-                                                  ],
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ), // Column
-                                  ), // Form
-                                ), // Container
-                              ), // ConstrainedBox
-                            ), // SingleChildScrollView
-                          ), // Align
-                        ), // Padding
-                      ), // Expanded (remainder)
+                                constraints: const BoxConstraints(maxWidth: 360),
+                                child: _RegisterCard(
+                                  formKey: _formKey,
+                                  stagger: _stagger,
+                                  nameController: _nameController,
+                                  emailController: _emailController,
+                                  passwordController: _passwordController,
+                                  nameFocus: _nameFocus,
+                                  emailFocus: _emailFocus,
+                                  passwordFocus: _passwordFocus,
+                                  obscurePassword: _obscurePassword,
+                                  onToggleObscure: () => setState(() => _obscurePassword = !_obscurePassword),
+                                  roles: _roles,
+                                  selectedRole: _selectedRole,
+                                  onRoleChanged: (value) => setState(() {
+                                    _selectedRole = value;
+                                    if (!_requiresBranch) _selectedBranch = null;
+                                  }),
+                                  requiresBranch: _requiresBranch,
+                                  branches: _branches,
+                                  selectedBranch: _selectedBranch,
+                                  onBranchChanged: (val) => setState(() => _selectedBranch = val),
+                                  isLoading: _isLoading,
+                                  onRegister: _handleRegister,
+                                  onLoginTap: () => Navigator.pop(context),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 );
@@ -513,19 +249,369 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
       ),
     );
   }
+}
+
+/// The premium white register card -- sized/laid out identically in
+/// spirit to _LoginCard in login_screen.dart (Container + rounded
+/// corners + Form, no internal scrolling, no bottom-sheet framing) so
+/// both cards get scaled to the same band by the parent FittedBox.
+class _RegisterCard extends StatelessWidget {
+  final GlobalKey<FormState> formKey;
+  final Animation<double> Function(double, double) stagger;
+  final TextEditingController nameController;
+  final TextEditingController emailController;
+  final TextEditingController passwordController;
+  final FocusNode nameFocus;
+  final FocusNode emailFocus;
+  final FocusNode passwordFocus;
+  final bool obscurePassword;
+  final VoidCallback onToggleObscure;
+  final List<Map<String, dynamic>> roles;
+  final String selectedRole;
+  final ValueChanged<String> onRoleChanged;
+  final bool requiresBranch;
+  final List<String> branches;
+  final String? selectedBranch;
+  final ValueChanged<String?> onBranchChanged;
+  final bool isLoading;
+  final VoidCallback onRegister;
+  final VoidCallback onLoginTap;
+
+  const _RegisterCard({
+    required this.formKey,
+    required this.stagger,
+    required this.nameController,
+    required this.emailController,
+    required this.passwordController,
+    required this.nameFocus,
+    required this.emailFocus,
+    required this.passwordFocus,
+    required this.obscurePassword,
+    required this.onToggleObscure,
+    required this.roles,
+    required this.selectedRole,
+    required this.onRoleChanged,
+    required this.requiresBranch,
+    required this.branches,
+    required this.selectedBranch,
+    required this.onBranchChanged,
+    required this.isLoading,
+    required this.onRegister,
+    required this.onLoginTap,
+  });
 
   Widget _sectionLabel(IconData icon, String text) {
     return Row(
       children: [
-        Icon(icon, size: 19, color: _kTeal),
-        const SizedBox(width: 10),
+        Icon(icon, size: 14, color: _kAccentDark),
+        const SizedBox(width: 6),
         Text(
-          text.toUpperCase(),
-          style: const TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.w800,
-            color: AppColors.textSecondary,
-            letterSpacing: 1.2,
+          text,
+          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: _kTextDark),
+        ),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
+      decoration: BoxDecoration(
+        color: _kCard,
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withValues(alpha: 0.12), blurRadius: 24, offset: const Offset(0, 10)),
+        ],
+      ),
+      child: Form(
+        key: formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // ---------- Header ----------
+            _FadeSlideIn(
+              animation: stagger(0.0, 0.5),
+              child: const Text(
+                'Join CDA RPTO',
+                style: TextStyle(color: _kTextDark, fontSize: 16, fontWeight: FontWeight.w700),
+              ),
+            ),
+            const SizedBox(height: 2),
+            _FadeSlideIn(
+              animation: stagger(0.05, 0.55),
+              child: const Text(
+                'Set up your training account in a few steps',
+                style: TextStyle(color: _kTextMuted, fontSize: 11),
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // ---------- Section: Personal details ----------
+            _FadeSlideIn(
+              animation: stagger(0.1, 0.58),
+              child: _sectionLabel(Icons.person_outline_rounded, 'Personal details'),
+            ),
+            const SizedBox(height: 6),
+            _FadeSlideIn(
+              animation: stagger(0.14, 0.6),
+              child: _BrightField(
+                focusNode: nameFocus,
+                controller: nameController,
+                label: 'Full name',
+                hint: 'Enter your full name',
+                icon: Icons.person_outline_rounded,
+                validator: (value) => (value == null || value.isEmpty) ? 'Name required' : null,
+              ),
+            ),
+            const SizedBox(height: 8),
+            _FadeSlideIn(
+              animation: stagger(0.18, 0.63),
+              child: _BrightField(
+                focusNode: emailFocus,
+                controller: emailController,
+                label: 'Email',
+                hint: 'Enter your email',
+                icon: Icons.mail_outline_rounded,
+                keyboardType: TextInputType.emailAddress,
+                validator: (value) {
+                  if (value == null || value.isEmpty) return 'Email required';
+                  if (!value.contains('@')) return 'Enter a valid email';
+                  return null;
+                },
+              ),
+            ),
+            const SizedBox(height: 10),
+            const Divider(color: _kFieldBorder, height: 1),
+            const SizedBox(height: 10),
+
+            // ---------- Section: Security ----------
+            _FadeSlideIn(
+              animation: stagger(0.22, 0.66),
+              child: _sectionLabel(Icons.lock_outline_rounded, 'Security'),
+            ),
+            const SizedBox(height: 6),
+            _FadeSlideIn(
+              animation: stagger(0.26, 0.68),
+              child: _BrightField(
+                focusNode: passwordFocus,
+                controller: passwordController,
+                label: 'Password',
+                hint: 'Enter your password',
+                icon: Icons.lock_outline_rounded,
+                obscureText: obscurePassword,
+                suffixIcon: IconButton(
+                  icon: Icon(
+                    obscurePassword ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+                    color: _kTextMuted,
+                    size: 20,
+                  ),
+                  onPressed: onToggleObscure,
+                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) return 'Password required';
+                  if (value.length < 6) return 'Minimum 6 characters';
+                  return null;
+                },
+              ),
+            ),
+            const SizedBox(height: 3),
+            _FadeSlideIn(
+              animation: stagger(0.28, 0.7),
+              child: const Text(
+                'Use at least 6 characters',
+                style: TextStyle(fontSize: 9.5, color: _kTextMuted),
+              ),
+            ),
+            const SizedBox(height: 10),
+            const Divider(color: _kFieldBorder, height: 1),
+            const SizedBox(height: 10),
+
+            // ---------- Section: Role ----------
+            _FadeSlideIn(
+              animation: stagger(0.3, 0.73),
+              child: _sectionLabel(Icons.badge_outlined, 'Your role'),
+            ),
+            const SizedBox(height: 6),
+            _FadeSlideIn(
+              animation: stagger(0.33, 0.76),
+              child: Row(
+                children: roles.map((role) {
+                  final isSelected = selectedRole == role['value'];
+                  return Expanded(
+                    child: GestureDetector(
+                      onTap: () => onRoleChanged(role['value'] as String),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        curve: Curves.easeOut,
+                        margin: const EdgeInsets.symmetric(horizontal: 3),
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        decoration: BoxDecoration(
+                          color: isSelected ? _kAccentSoft : Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: isSelected ? _kAccent : _kFieldBorder,
+                            width: isSelected ? 1.4 : 1,
+                          ),
+                        ),
+                        child: Column(
+                          children: [
+                            Icon(
+                              role['icon'],
+                              color: isSelected ? _kAccentDark : _kTextMuted,
+                              size: 17,
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              role['label'],
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                                color: isSelected ? _kAccentDark : _kTextMuted,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+
+            // ---------- Section: Branch (instructor / student only) ----------
+            AnimatedSize(
+              duration: const Duration(milliseconds: 240),
+              curve: Curves.easeOut,
+              alignment: Alignment.topCenter,
+              child: requiresBranch
+                  ? Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const SizedBox(height: 8),
+                  _FadeSlideIn(
+                    animation: stagger(0.36, 0.8),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Branch',
+                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _kTextMuted),
+                        ),
+                        const SizedBox(height: 4),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          decoration: BoxDecoration(
+                            color: _kAccentSoft,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: DropdownButtonHideUnderline(
+                            child: DropdownButton<String>(
+                              isExpanded: true,
+                              value: selectedBranch,
+                              hint: const Text('Select branch', style: TextStyle(color: _kTextMuted, fontSize: 12)),
+                              icon: const Icon(Icons.keyboard_arrow_down_rounded, color: _kAccent, size: 20),
+                              dropdownColor: Colors.white,
+                              borderRadius: BorderRadius.circular(12),
+                              style: const TextStyle(color: _kTextDark, fontSize: 13, fontWeight: FontWeight.w600),
+                              items: branches.map((branch) {
+                                return DropdownMenuItem<String>(
+                                  value: branch, // raw value stays 'Branch 1' / 'Branch 2'
+                                  child: Row(
+                                    children: [
+                                      const Icon(Icons.apartment_rounded, size: 16, color: _kAccentDark),
+                                      const SizedBox(width: 8),
+                                      Text(_kBranchLabels[branch] ?? branch),
+                                    ],
+                                  ),
+                                );
+                              }).toList(),
+                              onChanged: onBranchChanged,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              )
+                  : const SizedBox(width: double.infinity),
+            ),
+            const SizedBox(height: 12),
+
+            _FadeSlideIn(
+              animation: stagger(0.4, 0.85),
+              child: _CreateAccountButton(isLoading: isLoading, onPressed: onRegister),
+            ),
+            const SizedBox(height: 6),
+
+            _FadeSlideIn(
+              animation: stagger(0.45, 0.9),
+              child: Center(
+                child: TextButton(
+                  onPressed: onLoginTap,
+                  style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(0, 0)),
+                  child: RichText(
+                    text: const TextSpan(
+                      style: TextStyle(color: _kTextMuted, fontSize: 13),
+                      children: [
+                        TextSpan(text: 'Already have an account?  '),
+                        TextSpan(text: 'Login', style: TextStyle(color: _kAccent, fontWeight: FontWeight.w700)),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// ---------------------------------------------------------------------
+/// Same bright sky/drone/tower photo as login_screen.dart, so both auth
+/// screens feel like one continuous experience. Only a light bottom wash
+/// (not a full navy scrim) since the card sits on solid white now.
+/// ---------------------------------------------------------------------
+class _PhotoBackground extends StatelessWidget {
+  const _PhotoBackground();
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Image.asset(
+          _kBgAssetPath,
+          fit: BoxFit.cover,
+          alignment: Alignment.topCenter,
+          errorBuilder: (context, error, stackTrace) {
+            return const DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [_kBgFallback, _kAccentSoft],
+                ),
+              ),
+            );
+          },
+        ),
+        const DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Color(0x00FFFFFF),
+                Color(0x1AFFFFFF),
+                Color(0x40FFFFFF),
+              ],
+              stops: [0.5, 0.75, 1.0],
+            ),
           ),
         ),
       ],
@@ -533,87 +619,9 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
   }
 }
 
-/// ---------------------------------------------------------------------------
-/// Deep-navy background with slow-breathing teal glow, matching login_screen.dart.
-/// ---------------------------------------------------------------------------
-class _AmbientBackground extends StatelessWidget {
-  final AnimationController controller;
-  const _AmbientBackground({required this.controller});
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: controller,
-      builder: (context, _) {
-        final t = controller.value;
-        return Stack(
-          fit: StackFit.expand,
-          children: [
-            // Same full-bleed background photo as login_screen.dart, so
-            // both auth screens feel like one continuous experience.
-            Image.asset(
-              _kBgAssetPath,
-              fit: BoxFit.cover,
-              alignment: Alignment.topCenter,
-              errorBuilder: (context, error, stackTrace) {
-                return const DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [_kNavy, _kSurface],
-                    ),
-                  ),
-                );
-              },
-            ),
-            // Slightly heavier scrim than login_screen.dart since this
-            // form runs the full scroll height, not just one card band.
-            const DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Color(0x59050A14), // ~35% navy
-                    Color(0x66050A14), // ~40% navy
-                    Color(0x73050A14), // ~45% navy
-                  ],
-                  stops: [0.0, 0.5, 1.0],
-                ),
-              ),
-            ),
-            Positioned(
-              top: -140 + (t * 20),
-              left: -100,
-              child: _glow(_kTeal.withValues(alpha: 0.14), 300),
-            ),
-            Positioned(
-              bottom: -160 - (t * 20),
-              right: -120,
-              child: _glow(_kTeal.withValues(alpha: 0.08), 320),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _glow(Color color, double size) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        boxShadow: [BoxShadow(color: color, blurRadius: 160, spreadRadius: 60)],
-      ),
-    );
-  }
-}
-
-/// ---------------------------------------------------------------------------
+/// ---------------------------------------------------------------------
 /// Fade + slide-up wrapper driven by an outer stagger animation.
-/// ---------------------------------------------------------------------------
+/// ---------------------------------------------------------------------
 class _FadeSlideIn extends StatelessWidget {
   final Animation<double> animation;
   final Widget child;
@@ -638,39 +646,81 @@ class _FadeSlideIn extends StatelessWidget {
   }
 }
 
-/// ---------------------------------------------------------------------------
-/// Wraps a CustomTextField with an animated glowing teal border on focus.
-/// ---------------------------------------------------------------------------
-class _GlowField extends StatelessWidget {
+/// ---------------------------------------------------------------------
+/// Bright, pill-filled text field with a leading icon -- same look as
+/// login_screen.dart's field, duplicated locally since it's a private
+/// widget there.
+/// ---------------------------------------------------------------------
+class _BrightField extends StatelessWidget {
   final FocusNode focusNode;
-  final Widget child;
+  final TextEditingController controller;
+  final String label;
+  final String hint;
+  final IconData icon;
+  final bool obscureText;
+  final TextInputType keyboardType;
+  final Widget? suffixIcon;
+  final String? Function(String?)? validator;
 
-  const _GlowField({required this.focusNode, required this.child});
+  const _BrightField({
+    required this.focusNode,
+    required this.controller,
+    required this.label,
+    required this.hint,
+    required this.icon,
+    this.obscureText = false,
+    this.keyboardType = TextInputType.text,
+    this.suffixIcon,
+    this.validator,
+  });
 
   @override
   Widget build(BuildContext context) {
     final isFocused = focusNode.hasFocus;
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 220),
-      curve: Curves.easeOut,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(10),
-        boxShadow: isFocused
-            ? [BoxShadow(color: _kTeal.withValues(alpha: 0.28), blurRadius: 18, spreadRadius: 1)]
-            : [],
-        border: Border.all(
-          color: isFocused ? _kTeal.withValues(alpha: 0.7) : Colors.transparent,
-          width: 1.4,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: const TextStyle(color: _kTextMuted, fontSize: 11, fontWeight: FontWeight.w600)),
+        const SizedBox(height: 4),
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          decoration: BoxDecoration(
+            color: _kAccentSoft,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: isFocused ? _kAccent : Colors.transparent, width: 1.2),
+          ),
+          child: TextFormField(
+            controller: controller,
+            focusNode: focusNode,
+            obscureText: obscureText,
+            keyboardType: keyboardType,
+            validator: validator,
+            style: const TextStyle(color: _kTextDark, fontSize: 13),
+            decoration: InputDecoration(
+              hintText: hint,
+              hintStyle: const TextStyle(color: _kTextMuted, fontSize: 12),
+              prefixIcon: Icon(icon, size: 18, color: _kAccentDark),
+              suffixIcon: suffixIcon,
+              filled: false,
+              border: InputBorder.none,
+              errorBorder: InputBorder.none,
+              focusedBorder: InputBorder.none,
+              enabledBorder: InputBorder.none,
+              focusedErrorBorder: InputBorder.none,
+              contentPadding: const EdgeInsets.symmetric(vertical: 10),
+              errorStyle: const TextStyle(color: _kError, fontSize: 10.5),
+            ),
+          ),
         ),
-      ),
-      child: child,
+      ],
     );
   }
 }
 
-/// ---------------------------------------------------------------------------
-/// Primary CTA with gradient fill, press-scale feedback, and a spinner swap.
-/// ---------------------------------------------------------------------------
+/// ---------------------------------------------------------------------
+/// Primary CTA -- solid blue fill, press-scale feedback, spinner swap.
+/// Matches _LoginButton in login_screen.dart.
+/// ---------------------------------------------------------------------
 class _CreateAccountButton extends StatefulWidget {
   final bool isLoading;
   final VoidCallback onPressed;
@@ -697,33 +747,31 @@ class _CreateAccountButtonState extends State<_CreateAccountButton> {
         scale: _scale,
         duration: const Duration(milliseconds: 120),
         child: Container(
-          height: 62,
+          height: 40,
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(10),
-            gradient: LinearGradient(
-              colors: widget.isLoading
-                  ? [_kTeal.withValues(alpha: 0.5), const Color(0xFF0D9488).withValues(alpha: 0.5)]
-                  : const [_kTeal, Color(0xFF0D9488)],
-            ),
+            borderRadius: BorderRadius.circular(12),
+            color: widget.isLoading ? _kAccent.withValues(alpha: 0.6) : _kAccent,
             boxShadow: [
-              BoxShadow(color: _kTeal.withValues(alpha: 0.35), blurRadius: 20, offset: const Offset(0, 8)),
+              BoxShadow(color: _kAccent.withValues(alpha: 0.35), blurRadius: 14, offset: const Offset(0, 6)),
             ],
           ),
           child: widget.isLoading
               ? const SizedBox(
-            height: 22,
-            width: 22,
-            child: CircularProgressIndicator(strokeWidth: 2.4, color: Colors.white),
+            height: 18,
+            width: 18,
+            child: CircularProgressIndicator(strokeWidth: 2.2, color: Colors.white),
           )
-              : const Text(
-            'CREATE ACCOUNT',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 16.5,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 1.2,
-            ),
+              : const Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.person_add_alt_1_rounded, color: Colors.white, size: 16),
+              SizedBox(width: 6),
+              Text(
+                'Create account',
+                style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w700),
+              ),
+            ],
           ),
         ),
       ),

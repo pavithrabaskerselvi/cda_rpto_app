@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import '../../config/constants.dart';
 
 /// BulkBatchSetupScreen
 /// ---------------------
@@ -37,7 +38,7 @@ class _BulkBatchSetupScreenState extends State<BulkBatchSetupScreen> {
 
   String? _selectedInstructor;
   String _selectedStatus = 'Upcoming';
-  String _selectedCategory = 'RPC';
+  String _selectedCategory = kDefaultBatchCategory;
   DateTime? _startDate;
   DateTime? _endDate;
 
@@ -46,7 +47,7 @@ class _BulkBatchSetupScreenState extends State<BulkBatchSetupScreen> {
   int _failed = 0;
 
   final List<String> _statusOptions = ['Upcoming', 'Ongoing', 'Completed'];
-  final List<String> _categoryOptions = ['RPC'];
+  final List<String> _categoryOptions = kBatchCategories;
 
   bool _isDark(BuildContext c) => Theme.of(c).brightness == Brightness.dark;
   Color _kNavy(BuildContext c) =>
@@ -385,7 +386,7 @@ class _BulkBatchSetupScreenState extends State<BulkBatchSetupScreen> {
               items: _categoryOptions
                   .map((c) => DropdownMenuItem(value: c, child: Text(c)))
                   .toList(),
-              onChanged: (v) => setState(() => _selectedCategory = v ?? 'RPC'),
+              onChanged: (v) => setState(() => _selectedCategory = v ?? kDefaultBatchCategory),
             ),
             const SizedBox(height: 16),
 

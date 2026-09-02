@@ -1,9 +1,15 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import '../../config/routes.dart';
+import '../../config/constants.dart';
 
 class BatchListScreen extends StatefulWidget {
-  const BatchListScreen({super.key});
+  /// When set, only batches whose (normalized) category matches this key
+  /// are shown, and the screen is titled after the category. When null,
+  /// every batch across every category is shown (used e.g. from Search).
+  final String? category;
+
+  const BatchListScreen({super.key, this.category});
 
   @override
   State<BatchListScreen> createState() => _BatchListScreenState();
@@ -78,7 +84,7 @@ class _BatchListScreenState extends State<BatchListScreen> {
               onPressed: () => Navigator.of(context).pop(),
             ),
             title: Text(
-              'BatchList',
+              widget.category == null ? 'BatchList' : '${widget.category} Batches',
               style: TextStyle(
                 color: _kTextPrimary(context),
                 fontWeight: FontWeight.bold,
@@ -128,7 +134,10 @@ class _BatchListScreenState extends State<BatchListScreen> {
                   child: IconButton(
                     icon: const Icon(Icons.add, color: Colors.white),
                     onPressed: () {
-                      Navigator.of(context).pushNamed(AppRoutes.batchAdd);
+                      Navigator.of(context).pushNamed(
+                        AppRoutes.batchAdd,
+                        arguments: widget.category,
+                      );
                     },
                   ),
                 ),
@@ -217,7 +226,17 @@ class _BatchListScreenState extends State<BatchListScreen> {
                 );
               }
 
-              final allDocs = snapshot.data?.docs ?? [];
+              final allDocsUnfiltered = snapshot.data?.docs ?? [];
+              // Scope to this screen's category first (if any) — batches
+              // saved before the category field existed have no
+              // `category` value, so those are treated as RPC.
+              final allDocs = widget.category == null
+                  ? allDocsUnfiltered
+                  : allDocsUnfiltered.where((doc) {
+                final data = doc.data() as Map<String, dynamic>;
+                return normalizeBatchCategory(data['category'] as String?) ==
+                    widget.category;
+              }).toList();
               final docs = allDocs.where((doc) {
                 final data = doc.data() as Map<String, dynamic>;
                 final batchName = (data['batchName'] ?? '').toString().toLowerCase();
@@ -264,7 +283,6 @@ class _BatchListScreenState extends State<BatchListScreen> {
                       final docId = docs[index].id;
 
                       final batchName = data['batchName'] ?? 'Unnamed Batch';
-                      final instructor = data['instructor'] ?? '-';
                       final studentCount = data['studentCount'] ?? 0;
                       final status = data['status'] ?? 'Upcoming';
                       final startDate = data['startDate'] != null
@@ -355,9 +373,6 @@ class _BatchListScreenState extends State<BatchListScreen> {
                                     color: _kBorder(context),
                                   ),
                                   const SizedBox(height: 14),
-                                  _infoRow(context, Icons.person_outline,
-                                      'Instructor: $instructor'),
-                                  const SizedBox(height: 8),
                                   _infoRow(context, Icons.groups_2_outlined,
                                       'Students: $studentCount'),
                                   if (startDate != null && endDate != null) ...[

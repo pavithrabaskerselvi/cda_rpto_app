@@ -487,7 +487,6 @@ class AttachDocumentButtonState extends State<AttachDocumentButton> {
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
         color: c.surface,
         borderRadius: BorderRadius.circular(14),
@@ -495,75 +494,82 @@ class AttachDocumentButtonState extends State<AttachDocumentButton> {
           color: showError ? c.danger : c.borderSubtle.withValues(alpha: 0.08),
         ),
       ),
-      child: Row(
-        children: [
-          Container(
-            width: 34,
-            height: 34,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: c.accent.withValues(alpha: 0.12),
-            ),
-            child: Icon(
-              doc != null ? _fileIcon(doc.name) : Icons.folder_outlined,
-              color: c.accent,
-              size: 16,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: doc != null ? () => _openDocument(doc!) : null,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          child: Row(
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: c.accent.withValues(alpha: 0.12),
+                ),
+                child: Icon(
+                  doc != null ? _fileIcon(doc.name) : Icons.folder_outlined,
+                  color: c.accent,
+                  size: 16,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      req.label,
-                      style: GoogleFonts.plusJakartaSans(
-                        color: c.textPrimary,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 13.5,
-                      ),
-                    ),
-                    if (req.required) ...[
-                      const SizedBox(width: 4),
-                      Text('*',
+                    Row(
+                      children: [
+                        Text(
+                          req.label,
                           style: GoogleFonts.plusJakartaSans(
-                              color: c.danger, fontWeight: FontWeight.bold)),
-                    ],
+                            color: c.textPrimary,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 13.5,
+                          ),
+                        ),
+                        if (req.required) ...[
+                          const SizedBox(width: 4),
+                          Text('*',
+                              style: GoogleFonts.plusJakartaSans(
+                                  color: c.danger, fontWeight: FontWeight.bold)),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      doc != null ? doc.name : (showError ? 'Required — not attached' : 'Not attached'),
+                      style: GoogleFonts.plusJakartaSans(
+                        color: doc != null
+                            ? c.textSecondary
+                            : (showError ? c.danger : c.textSecondary.withValues(alpha: 0.6)),
+                        fontSize: 12.5,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ],
                 ),
-                const SizedBox(height: 3),
-                Text(
-                  doc != null ? doc.name : (showError ? 'Required — not attached' : 'Not attached'),
-                  style: GoogleFonts.plusJakartaSans(
-                    color: doc != null
-                        ? c.textSecondary
-                        : (showError ? c.danger : c.textSecondary.withValues(alpha: 0.6)),
-                    fontSize: 12.5,
-                  ),
-                  overflow: TextOverflow.ellipsis,
+              ),
+              if (doc != null)
+                _actionIcons(doc, c, busy: busy)
+              else if (busy)
+                SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: c.accent),
+                )
+              else
+                IconButton(
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
+                  icon: Icon(Icons.attach_file, color: c.accent, size: 18),
+                  tooltip: 'Attach',
+                  onPressed: _uploading ? null : () => _pickAndUpload(key: req.key),
                 ),
-              ],
-            ),
+            ],
           ),
-          if (doc != null)
-            _actionIcons(doc, c, busy: busy)
-          else if (busy)
-            SizedBox(
-              width: 18,
-              height: 18,
-              child: CircularProgressIndicator(strokeWidth: 2, color: c.accent),
-            )
-          else
-            IconButton(
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
-              icon: Icon(Icons.attach_file, color: c.accent, size: 18),
-              tooltip: 'Attach',
-              onPressed: _uploading ? null : () => _pickAndUpload(key: req.key),
-            ),
-        ],
+        ),
       ),
     );
   }
@@ -673,26 +679,32 @@ class AttachDocumentButtonState extends State<AttachDocumentButton> {
                   final busy = _uploading && _uploadingKey == 'replace:${d.url}';
                   return Container(
                     margin: const EdgeInsets.only(bottom: 6),
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                     decoration: BoxDecoration(
                       color: c.background.withValues(alpha: 0.5),
                       borderRadius: BorderRadius.circular(9),
                       border: Border.all(color: c.borderSubtle.withValues(alpha: 0.06)),
                     ),
-                    child: Row(
-                      children: [
-                        Icon(_fileIcon(d.name), color: c.textSecondary, size: 15),
-                        const SizedBox(width: 7),
-                        Expanded(
-                          child: Text(
-                            d.name,
-                            style: GoogleFonts.plusJakartaSans(
-                                color: c.textPrimary, fontSize: 12.5, fontWeight: FontWeight.w500),
-                            overflow: TextOverflow.ellipsis,
-                          ),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(9),
+                      onTap: () => _openDocument(d),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        child: Row(
+                          children: [
+                            Icon(_fileIcon(d.name), color: c.textSecondary, size: 15),
+                            const SizedBox(width: 7),
+                            Expanded(
+                              child: Text(
+                                d.name,
+                                style: GoogleFonts.plusJakartaSans(
+                                    color: c.textPrimary, fontSize: 12.5, fontWeight: FontWeight.w500),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            _actionIcons(d, c, busy: busy),
+                          ],
                         ),
-                        _actionIcons(d, c, busy: busy),
-                      ],
+                      ),
                     ),
                   );
                 }).toList(),
@@ -744,34 +756,40 @@ class AttachDocumentButtonState extends State<AttachDocumentButton> {
     final busy = _uploading && _uploadingKey == 'replace:${doc.url}';
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: c.surface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: c.borderSubtle.withValues(alpha: 0.08)),
       ),
-      child: Row(
-        children: [
-          Container(
-            width: 32,
-            height: 32,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: c.accent.withValues(alpha: 0.12),
-            ),
-            child: Icon(_fileIcon(doc.name), color: c.accent, size: 15),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => _openDocument(doc),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          child: Row(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: c.accent.withValues(alpha: 0.12),
+                ),
+                child: Icon(_fileIcon(doc.name), color: c.accent, size: 15),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  doc.name,
+                  style: GoogleFonts.plusJakartaSans(
+                      color: c.textPrimary, fontSize: 13, fontWeight: FontWeight.w600),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              _actionIcons(doc, c, busy: busy),
+            ],
           ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              doc.name,
-              style: GoogleFonts.plusJakartaSans(
-                  color: c.textPrimary, fontSize: 13, fontWeight: FontWeight.w600),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          _actionIcons(doc, c, busy: busy),
-        ],
+        ),
       ),
     );
   }

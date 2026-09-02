@@ -8,8 +8,9 @@ import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 import '../../config/theme_colors.dart';
 import '../../providers/theme_provider.dart';
 import 'pdf_web_frame.dart';
+import 'excel_viewer.dart';
 
-enum _ViewerKind { pdf, image, unsupported }
+enum _ViewerKind { pdf, image, excel, unsupported }
 
 /// Full-screen, in-app viewer for a single attached document.
 ///
@@ -53,6 +54,11 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
   // instead of leaving a blank viewer with just a passing SnackBar.
   String? _pdfRenderError;
 
+  // Excel (.xlsx) bytes — parsed with the pure-Dart `excel` package, so
+  // (unlike PDF) the same download-then-parse path works identically on
+  // web, mobile, and desktop; no separate web-iframe path needed.
+  late Future<Uint8List> _excelBytesFuture;
+
   static const _imageExtensions = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.bmp'];
 
   @override
@@ -64,6 +70,9 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
     // (Syncfusion-from-memory) needs them.
     if (_kind == _ViewerKind.pdf && !isRunningOnWeb) {
       _pdfBytesFuture = _fetchPdfBytes();
+    }
+    if (_kind == _ViewerKind.excel) {
+      _excelBytesFuture = _fetchExcelBytes();
     }
   }
 
@@ -92,6 +101,26 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
     return bytes;
   }
 
+  Future<Uint8List> _fetchExcelBytes() async {
+    final response = await http.get(Uri.parse(widget.url));
+    if (response.statusCode != 200) {
+      throw Exception('Server returned ${response.statusCode}');
+    }
+    final bytes = response.bodyBytes;
+    if (bytes.isEmpty) {
+      throw Exception('Empty file received');
+    }
+    // .xlsx files are zip archives under the hood — a real one always
+    // starts with the "PK" zip magic header. If it doesn't, the URL
+    // served something else (an HTML error/login page, a CORS-blocked
+    // stub, etc), so fail fast with a clear reason.
+    final looksLikeZip = bytes.length > 2 && bytes[0] == 0x50 && bytes[1] == 0x4B;
+    if (!looksLikeZip) {
+      throw Exception('The server did not return a valid Excel file');
+    }
+    return bytes;
+  }
+
   _ViewerKind get _kind {
     final urlLower = widget.url.toLowerCase().split('?').first;
     final nameLower = widget.name.toLowerCase();
@@ -103,6 +132,11 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
         _imageExtensions.any((ext) => nameLower.endsWith(ext))) {
       return _ViewerKind.image;
     }
+    // Only modern .xlsx is supported for in-app preview (see excel_viewer.dart).
+    // Legacy binary .xls falls through to the "unsupported" open-externally path.
+    if (urlLower.endsWith('.xlsx') || nameLower.endsWith('.xlsx')) {
+      return _ViewerKind.excel;
+    }
     return _ViewerKind.unsupported;
   }
 
@@ -112,6 +146,8 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
         return Icons.picture_as_pdf_outlined;
       case _ViewerKind.image:
         return Icons.image_outlined;
+      case _ViewerKind.excel:
+        return Icons.grid_on_outlined;
       case _ViewerKind.unsupported:
         return Icons.insert_drive_file_outlined;
     }
@@ -127,6 +163,12 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
     setState(() {
       _pdfRenderError = null;
       _pdfBytesFuture = _fetchPdfBytes();
+    });
+  }
+
+  void _retryExcel() {
+    setState(() {
+      _excelBytesFuture = _fetchExcelBytes();
     });
   }
 
@@ -333,6 +375,23 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
               ),
             ),
           ),
+        );
+      case _ViewerKind.excel:
+        return FutureBuilder<Uint8List>(
+          future: _excelBytesFuture,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState != ConnectionState.done) {
+              return Center(child: CircularProgressIndicator(color: c.accent));
+            }
+            if (snapshot.hasError) {
+              return _errorState(
+                c,
+                message: 'This Excel file couldn\'t be downloaded (${snapshot.error}).',
+                onRetry: _retryExcel,
+              );
+            }
+            return ExcelViewerBody(bytes: snapshot.data!, colors: c);
+          },
         );
       case _ViewerKind.unsupported:
         return Center(

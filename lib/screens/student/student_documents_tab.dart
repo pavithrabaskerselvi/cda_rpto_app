@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:http/http.dart' as http;
-import 'package:url_launcher/url_launcher.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
@@ -13,6 +12,7 @@ import 'package:excel/excel.dart' hide Border;
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../config/theme_colors.dart';
+import '../document/document_viewer_screen.dart';
 
 const Color _pAccent = Color(0xFF2DD4BF);
 
@@ -313,14 +313,15 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
     );
   }
 
-  Future<void> _openDocument(String url) async {
-    final uri = Uri.parse(url);
-    final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
-    if (!launched && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not open document'), backgroundColor: Colors.redAccent),
-      );
-    }
+  void _openDocument(String url, {String name = 'Document'}) {
+    // Same as every other module (instructor, drone, company, etc.):
+    // open the in-app viewer instead of launching the browser.
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => DocumentViewerScreen(name: name, url: url),
+      ),
+    );
   }
 
   void _addCustomDocument() {
@@ -631,50 +632,62 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
         color: ThemeColors.surface(context),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: ThemeColors.divider(context)),
       ),
-      child: Row(
-        children: [
-          Icon(hasFile ? Icons.insert_drive_file : Icons.upload_file,
-              color: hasFile ? _pAccent : ThemeColors.textMuted(context), size: 22),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          // Same pattern as the instructor module's document rows
+          // (AttachDocumentButton): tapping anywhere on the row opens
+          // the document, not just the trailing icon.
+          onTap: hasFile ? () => _openDocument(doc['url'] as String, name: title) : null,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            child: Row(
               children: [
-                Text(title,
-                    style: GoogleFonts.plusJakartaSans(
-                        color: ThemeColors.textPrimary(context), fontWeight: FontWeight.w600)),
-                if (uploadedAt != null)
-                  Text(
-                    'Uploaded ${DateFormat('dd MMM yyyy').format(uploadedAt)}',
-                    style: GoogleFonts.plusJakartaSans(
-                        color: ThemeColors.textMuted(context), fontSize: 12),
-                  )
-                else
-                  Text('Not uploaded',
-                      style: GoogleFonts.plusJakartaSans(
-                          color: ThemeColors.textMuted(context), fontSize: 12)),
+                Icon(hasFile ? Icons.insert_drive_file : Icons.upload_file,
+                    color: hasFile ? _pAccent : ThemeColors.textMuted(context), size: 22),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(title,
+                          style: GoogleFonts.plusJakartaSans(
+                              color: ThemeColors.textPrimary(context), fontWeight: FontWeight.w600)),
+                      if (uploadedAt != null)
+                        Text(
+                          'Uploaded ${DateFormat('dd MMM yyyy').format(uploadedAt)}',
+                          style: GoogleFonts.plusJakartaSans(
+                              color: ThemeColors.textMuted(context), fontSize: 12),
+                        )
+                      else
+                        Text('Not uploaded',
+                            style: GoogleFonts.plusJakartaSans(
+                                color: ThemeColors.textMuted(context), fontSize: 12)),
+                    ],
+                  ),
+                ),
+                if (hasFile)
+                  IconButton(
+                    icon: const Icon(Icons.open_in_new, color: _pAccent, size: 20),
+                    tooltip: 'View',
+                    onPressed: () => _openDocument(doc['url'] as String, name: title),
+                  ),
+                if (onUpload != null)
+                  IconButton(
+                    icon: Icon(hasFile ? Icons.refresh : Icons.add_circle_outline, color: _pAccent),
+                    tooltip: hasFile ? 'Replace' : 'Upload',
+                    onPressed: _uploading ? null : onUpload,
+                  ),
               ],
             ),
           ),
-          if (hasFile)
-            IconButton(
-              icon: const Icon(Icons.open_in_new, color: _pAccent, size: 20),
-              tooltip: 'View',
-              onPressed: () => _openDocument(doc['url'] as String),
-            ),
-          if (onUpload != null)
-            IconButton(
-              icon: Icon(hasFile ? Icons.refresh : Icons.add_circle_outline, color: _pAccent),
-              tooltip: hasFile ? 'Replace' : 'Upload',
-              onPressed: _uploading ? null : onUpload,
-            ),
-        ],
+        ),
       ),
     );
   }

@@ -6,7 +6,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../config/theme.dart';
-import '../../config/routes.dart';
 import '../../services/auth_service.dart';
 import '../company/company_list_screen.dart';
 import '../drone/drone_list_screen.dart';
@@ -18,9 +17,6 @@ import '../profile/profile_screen.dart';
 import '../search/search_screen.dart';
 import '../vault/vault_home_screen.dart';
 import '../analytics/analytics_overview_screen.dart';
-import '../admin/employee_access_screen.dart';
-import '../admin/admin_notifications_screen.dart';
-import '../../widgets/role_gated_widget.dart';
 
 /// Dashboard restyled as a flight-instrument / HUD panel: corner-bracket
 /// "targeting" frames, a radar sweep behind the crest, monospace readouts,
@@ -187,11 +183,20 @@ class _DashboardScreenState extends State<DashboardScreen>
         primaryTextTheme: nunitoTheme,
       ),
       // ---------- Page-wide white backdrop ----------
+      // Wraps the whole Scaffold so the background shows through everywhere,
+      // including behind the AppBar-less header, the scrollable body, and
+      // the floating bottom nav bar. The Scaffold below is made transparent
+      // so this is what's actually visible — a clean white page in the
+      // style of the chennaidroneacademy.com site, with a dark-navy hero
+      // band for the header (matching the site's navy hero banner) and the
+      // CDA blue/teal used as accent (icons, shimmer highlights).
       child: Container(
         decoration: const BoxDecoration(
           color: Colors.white,
         ),
         child: Scaffold(
+          // Transparent so the Container's white background shows through
+          // instead of being covered by the Scaffold's default background.
           backgroundColor: Colors.transparent,
           // ---------- Left side navigation drawer: all modules + logout ----------
           drawer: _HudDrawer(userName: _userName),
@@ -224,7 +229,9 @@ class _DashboardScreenState extends State<DashboardScreen>
                         children: [
                           // Flying drones: sweep left-to-right across the header,
                           // banking slightly, fading in/out at the edges, then
-                          // pausing before the next pass.
+                          // pausing before the next pass. Drawn big and bold, with
+                          // a glowing electric-blue "targeting HUD" look, so the
+                          // pair reads clearly against the navy backdrop.
                           Positioned.fill(
                             child: AnimatedBuilder(
                               animation: _droneController,
@@ -348,6 +355,9 @@ class _DashboardScreenState extends State<DashboardScreen>
                                                 ),
                                               ],
                                             ),
+                                            // ClipOval + cover + slight upscale so the logo
+                                            // fills the circle edge-to-edge with no white
+                                            // ring showing around it.
                                             child: ClipOval(
                                               child: Transform.scale(
                                                 scale: 1.25,
@@ -514,6 +524,11 @@ class _DashboardScreenState extends State<DashboardScreen>
                                     MaterialPageRoute(builder: (_) => const BatchListScreen())),
                               ),
                               // ---- RPTO Vault tile ----
+                              // Drop a 'vault.png' image into
+                              // lib/assets/images/ for a matching look; if
+                              // it's missing, _TapColorCard's errorBuilder
+                              // falls back to a plain icon automatically so
+                              // nothing breaks in the meantime.
                               _TapColorCard(
                                 title: 'RPTO Vault',
                                 imagePath: 'lib/assets/images/rpto_vault.png',
@@ -522,7 +537,12 @@ class _DashboardScreenState extends State<DashboardScreen>
                                 onTap: () => Navigator.push(context,
                                     MaterialPageRoute(builder: (_) => const VaultHomeScreen())),
                               ),
-                              // ---- Analytics Dashboard tile ----
+                              // ---- NEW: Analytics Dashboard tile ----
+                              // Drop an 'analytics.png' image into
+                              // lib/assets/images/ for a matching look; if
+                              // it's missing, _TapColorCard's errorBuilder
+                              // falls back to a plain icon automatically so
+                              // nothing breaks in the meantime.
                               _TapColorCard(
                                 title: 'Analytics dashboard',
                                 imagePath: 'lib/assets/images/analytics_dashboard.png',
@@ -530,22 +550,6 @@ class _DashboardScreenState extends State<DashboardScreen>
                                 controller: _pulseController,
                                 onTap: () => Navigator.push(context,
                                     MaterialPageRoute(builder: (_) => const AnalyticsOverviewScreen())),
-                              ),
-                              // ---- Admin facility tile — admin only ----
-                              // Consolidates the old separate Instructor
-                              // Access / Access Requests / Live Activity
-                              // tiles into one "Access Hub" entry point.
-                              // Those three screens are unchanged — Access
-                              // Hub just lists and routes to them.
-                              AdminOnly(
-                                child: _TapColorCard(
-                                  title: 'Access Hub',
-                                  imagePath: 'lib/assets/images/access hub.png',
-                                  color: AppColors.teal,
-                                  controller: _pulseController,
-                                  onTap: () => Navigator.pushNamed(
-                                      context, AppRoutes.accessHub),
-                                ),
                               ),
                             ],
                           ),
@@ -599,6 +603,9 @@ class _DashboardScreenState extends State<DashboardScreen>
 
 // ---------------- Left drawer: full module list + logout ----------------
 
+/// Slide-out navigation drawer opened from the header hamburger icon.
+/// Mirrors the header crest at the top, lists every control module in the
+/// same order as the dashboard grid, and ends with a dedicated Logout row.
 class _HudDrawer extends StatelessWidget {
   final String? userName;
 
@@ -619,8 +626,10 @@ class _HudDrawer extends StatelessWidget {
       builder: () => const StudentListScreen()),
       (icon: Icons.groups, title: 'Batches', color: AppColors.coral,
       builder: () => const BatchListScreen()),
+      // ---- RPTO Vault drawer entry ----
       (icon: Icons.folder_special, title: 'RPTO Vault', color: AppColors.blue,
       builder: () => const VaultHomeScreen()),
+      // ---- NEW: Analytics drawer entry ----
       (icon: Icons.analytics, title: 'Analytics', color: AppColors.purple,
       builder: () => const AnalyticsOverviewScreen()),
       (icon: Icons.person, title: 'Profile', color: AppColors.blue,
@@ -633,6 +642,7 @@ class _HudDrawer extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // ---- Drawer header: crest + brand + signed-in user ----
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 20, 20, 18),
               child: Row(
@@ -687,6 +697,7 @@ class _HudDrawer extends StatelessWidget {
             ),
             const Divider(color: AppColors.border, height: 1),
 
+            // ---- All control modules ----
             Expanded(
               child: ListView.builder(
                 padding: const EdgeInsets.symmetric(vertical: 6),
@@ -704,7 +715,7 @@ class _HudDrawer extends StatelessWidget {
                       ),
                     ),
                     onTap: () {
-                      Navigator.pop(context);
+                      Navigator.pop(context); // close the drawer first
                       Navigator.push(context, MaterialPageRoute(builder: (_) => m.builder()));
                     },
                   );
@@ -714,6 +725,7 @@ class _HudDrawer extends StatelessWidget {
 
             const Divider(color: AppColors.border, height: 1),
 
+            // ---- Logout: always last, visually separated ----
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 6),
               child: ListTile(
@@ -747,6 +759,8 @@ class _ShimmerText extends StatelessWidget {
   final TextStyle style;
   final Color? highlightColor;
   final TextAlign textAlign;
+  // Staggers the shimmer sweep slightly per-instance so a screen full of
+  // shimmering labels doesn't all flash in perfect unison.
   final double phase;
 
   const _ShimmerText({
@@ -828,12 +842,22 @@ class _RadarSweepPainter extends CustomPainter {
 
 // ---------------- Flying drone painter (header signature animation) ----------------
 
+/// Draws a small squadron of glowing blue quadcopter drones sweeping
+/// left-to-right across the header at staggered times, on different
+/// vertical lanes. Each drone is rendered as an X-arm frame with circular
+/// "targeting" rotor rings and a lit-up center body — matching the
+/// reference HUD-style glowing drone artwork — rather than a solid
+/// silhouette. `progress` runs 0→1 across the whole shared cycle; each
+/// drone applies its own phase offset on top of that so the two don't fly
+/// in lockstep.
 class _FlyingDronePainter extends CustomPainter {
   final double progress;
   final Color color;
 
   _FlyingDronePainter({required this.progress, required this.color});
 
+  // Only two drones in the squadron, on different lanes/timings/sizes so
+  // they read as a pair rather than a crowd.
   static const List<_DroneConfig> _drones = [
     _DroneConfig(phaseOffset: 0.00, laneY: 0.18, scale: 2.00, flightSpan: 0.55),
     _DroneConfig(phaseOffset: 0.50, laneY: 0.34, scale: 1.70, flightSpan: 0.50),
@@ -850,9 +874,10 @@ class _FlyingDronePainter extends CustomPainter {
     final localProgress = (progress + cfg.phaseOffset) % 1.0;
     if (localProgress > cfg.flightSpan) return;
 
-    final t = localProgress / cfg.flightSpan;
+    final t = localProgress / cfg.flightSpan; // 0..1 across this drone's flight
     final scale = cfg.scale;
 
+    // Fade in over the first 12%, hold, fade out over the last 15%.
     double opacity = 1.0;
     if (t < 0.12) {
       opacity = t / 0.12;
@@ -862,10 +887,12 @@ class _FlyingDronePainter extends CustomPainter {
     opacity = opacity.clamp(0.0, 1.0);
     if (opacity <= 0) return;
 
+    // Gentle arc: left edge to right edge, dipping slightly in the middle.
     final dx = -0.15 + t * 1.3;
     final dy = cfg.laneY + 0.08 * math.sin(t * math.pi);
     final center = Offset(size.width * dx, size.height * dy);
 
+    // Slight banking tilt as it "flies".
     final tilt = math.sin(t * math.pi) * 0.12;
 
     final armPaint = Paint()
@@ -873,6 +900,7 @@ class _FlyingDronePainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.8 * scale
       ..strokeCap = StrokeCap.round;
+    // Soft outer glow ring around each rotor, like the reference image.
     final rotorGlowPaint = Paint()
       ..color = color.withValues(alpha: 0.25 * opacity)
       ..style = PaintingStyle.stroke
@@ -904,10 +932,13 @@ class _FlyingDronePainter extends CustomPainter {
       const Offset(armLen, armLen * 0.75),
     ];
 
+    // Arms from center to each rotor.
     for (final o in armOffsets) {
       canvas.drawLine(Offset.zero, o, armPaint);
     }
 
+    // Rotor rings: outer glow + crisp ring + crosshair, matching the
+    // circular "targeting" rotor look in the reference image.
     const rotorRadius = 5.0;
     for (final o in armOffsets) {
       canvas.drawCircle(o, rotorRadius, rotorGlowPaint);
@@ -916,6 +947,8 @@ class _FlyingDronePainter extends CustomPainter {
       canvas.drawLine(o + const Offset(0, -rotorRadius), o + const Offset(0, rotorRadius), crosshairPaint);
     }
 
+    // Glowing center body — small bright dot with a soft halo, like the
+    // reference image's lit-up core.
     canvas.drawCircle(Offset.zero, 4.5, bodyGlowPaint);
     canvas.drawCircle(Offset.zero, 2.2, bodyPaint);
 
@@ -927,6 +960,8 @@ class _FlyingDronePainter extends CustomPainter {
       oldDelegate.progress != progress || oldDelegate.color != color;
 }
 
+/// Per-drone timing/placement config used by [_FlyingDronePainter] to stagger
+/// the squadron so each drone flies at a different moment, lane, and size.
 class _DroneConfig {
   final double phaseOffset;
   final double laneY;
@@ -998,6 +1033,9 @@ class _HudFrame extends StatelessWidget {
 }
 
 // ---------------- Module card: HUD frame + full-bleed image + tap feedback ----------------
+// The module image fills the ENTIRE card edge-to-edge (BoxFit.cover).
+// Per request, NO text/title is rendered on the card anymore — image only,
+// plus the tap color wash and the small status dot for feedback.
 
 class _TapColorCard extends StatefulWidget {
   final String title;
@@ -1005,6 +1043,9 @@ class _TapColorCard extends StatefulWidget {
   final Color color;
   final VoidCallback onTap;
   final AnimationController controller;
+  // Kept for API compatibility with existing call sites; no longer used
+  // now that the image is full-bleed via BoxFit.cover instead of a fixed
+  // centered icon size.
   final double iconSize;
 
   const _TapColorCard({
@@ -1047,6 +1088,7 @@ class _TapColorCardState extends State<_TapColorCard> {
           child: Stack(
             fit: StackFit.expand,
             children: [
+              // ---- Image fills the entire card, edge-to-edge ----
               Positioned.fill(
                 child: Image.asset(
                   widget.imagePath,
@@ -1057,6 +1099,8 @@ class _TapColorCardState extends State<_TapColorCard> {
                   ),
                 ),
               ),
+
+              // ---- Pressed-state color wash on top of the image ----
               Positioned.fill(
                 child: AnimatedOpacity(
                   duration: const Duration(milliseconds: 150),
@@ -1064,6 +1108,8 @@ class _TapColorCardState extends State<_TapColorCard> {
                   child: Container(color: widget.color.withValues(alpha: 0.22)),
                 ),
               ),
+
+              // ---- Status dot, top-right ----
               Positioned(
                 top: 9,
                 right: 9,
@@ -1093,6 +1139,9 @@ class _TapColorCardState extends State<_TapColorCard> {
 
 // ---------------- Brand footer ----------------
 
+/// Small watermark-style footer echoing the header crest: brand name, a
+/// pulsing separator dot, and the parent company name — the last thing you
+/// see before the bottom nav.
 class _BrandFooter extends StatelessWidget {
   final AnimationController controller;
 
@@ -1113,6 +1162,7 @@ class _BrandFooter extends StatelessWidget {
                 shape: BoxShape.circle,
                 color: Colors.white,
               ),
+              // ClipOval + cover keeps this mini crest logo edge-to-edge too.
               child: ClipOval(
                 child: Transform.scale(
                   scale: 1.25,

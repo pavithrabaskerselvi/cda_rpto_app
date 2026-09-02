@@ -19,7 +19,7 @@ dependencies:
   firebase_storage: ^13.4.3
   web: ^1.1.0
   # File / Image picking (documents, camera etc.)
-  file_picker: ^8.1.4
+  file_picker: '>=10.3.10 <11.0.0'
   image_picker: ^1.1.2
 
   # QR / Barcode (future scope - drone/equipment tracking)
@@ -43,7 +43,6 @@ dependencies:
   url_launcher: ^6.3.0
 
   # Document export (PDF / Excel)
-
 
   excel: ^4.0.6
   path_provider: ^2.1.4

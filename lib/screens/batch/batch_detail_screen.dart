@@ -1,11 +1,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../config/constants.dart';
 import '../../models/student_model.dart';
 import '../student/student_detail_screen.dart';
 import '../student/student_add_screen.dart';
 import 'general_category/attendance_screen.dart';
-import 'general_category/counseling_screen.dart';
 import 'general_category/logbook_screen.dart';
 import 'general_category/candidate_list_screen.dart';
 import 'general_category/schedule_screen.dart';
@@ -43,13 +43,13 @@ class _BatchDetailScreenState extends State<BatchDetailScreen>
 
   String? _selectedDrone;
   String _selectedStatus = 'Upcoming';
-  String _selectedCategory = 'RPC';
+  String _selectedCategory = kDefaultBatchCategory;
   DateTime? _startDate;
   DateTime? _endDate;
   TimeOfDay? _startTime;
   TimeOfDay? _endTime;
 
-  final List<String> _categoryOptions = ['RPC'];
+  final List<String> _categoryOptions = kBatchCategories;
 
   bool _initialized = false;
 
@@ -122,7 +122,7 @@ class _BatchDetailScreenState extends State<BatchDetailScreen>
     _endDate = data['endDate'] != null
         ? (data['endDate'] as Timestamp).toDate()
         : null;
-    _selectedCategory = (data['category'] ?? 'RPC').toString();
+    _selectedCategory = normalizeBatchCategory(data['category'] as String?);
     _locationController.text = data['location'] ?? '';
     _scheduleDaysController.text = data['scheduleDays'] ?? '';
     _sessionDurationController.text = data['sessionDuration'] ?? '';
@@ -650,7 +650,7 @@ class _BatchDetailScreenState extends State<BatchDetailScreen>
                 items: _categoryOptions
                     .map((c) => DropdownMenuItem(value: c, child: Text(c)))
                     .toList(),
-                onChanged: (v) => setState(() => _selectedCategory = v ?? 'RPC'),
+                onChanged: (v) => setState(() => _selectedCategory = v ?? kDefaultBatchCategory),
               )
                   : TextFormField(
                 enabled: false,
@@ -1218,8 +1218,7 @@ class _BatchDetailScreenState extends State<BatchDetailScreen>
   /// All quick-action folders for a batch, matching the Drive structure:
   /// 1.list of candidates, 2.Schedule, 3.Attendance, 4.Training record,
   /// 5.logbook, 6.Student wise folder (the Students tab), 7.Batch Photos,
-  /// 8.Master sheet. Counseling isn't a Drive folder but stays here since
-  /// it was already part of this screen.
+  /// 8.Master sheet.
   Widget _buildQuickActionsGrid(BuildContext context, Map<String, dynamic> data) {
     final batchName = data['batchName'] ?? 'Batch';
 
@@ -1248,11 +1247,6 @@ class _BatchDetailScreenState extends State<BatchDetailScreen>
         icon: Icons.menu_book_outlined,
         label: 'Logbook',
         builder: (_) => LogbookScreen(batchId: widget.batchId, batchName: batchName),
-      ),
-      _QuickAction(
-        icon: Icons.psychology_outlined,
-        label: 'Counseling',
-        builder: (_) => CounselingScreen(batchId: widget.batchId, batchName: batchName),
       ),
       _QuickAction(
         icon: Icons.photo_library_outlined,

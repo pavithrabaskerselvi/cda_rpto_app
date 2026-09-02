@@ -1,8 +1,14 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import '../../config/constants.dart';
 
 class AddBatchScreen extends StatefulWidget {
-  const AddBatchScreen({super.key});
+  /// Pre-selects the Category dropdown, e.g. when this screen is opened
+  /// via the "+" button on a category-scoped BatchListScreen. Falls back
+  /// to the default category when null/unrecognized.
+  final String? initialCategory;
+
+  const AddBatchScreen({super.key, this.initialCategory});
 
   @override
   State<AddBatchScreen> createState() => _AddBatchScreenState();
@@ -22,7 +28,7 @@ class _AddBatchScreenState extends State<AddBatchScreen> {
   final TextEditingController _feeAmountController = TextEditingController();
 
   String _selectedStatus = 'Upcoming';
-  String _selectedCategory = 'RPC';
+  late String _selectedCategory;
   DateTime? _startDate;
   DateTime? _endDate;
   TimeOfDay? _startTime;
@@ -31,7 +37,16 @@ class _AddBatchScreenState extends State<AddBatchScreen> {
   bool _isSaving = false;
 
   final List<String> _statusOptions = ['Upcoming', 'Ongoing', 'Completed'];
-  final List<String> _categoryOptions = ['RPC'];
+  final List<String> _categoryOptions = kBatchCategories;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedCategory = (widget.initialCategory != null &&
+        kBatchCategories.contains(widget.initialCategory))
+        ? widget.initialCategory!
+        : kDefaultBatchCategory;
+  }
 
   // ---- Theme-aware colors: flip between dark/light based on current
   // Theme brightness instead of hardcoded dark-only constants. ----
@@ -307,7 +322,7 @@ class _AddBatchScreenState extends State<AddBatchScreen> {
               ))
                   .toList(),
               onChanged: (value) {
-                setState(() => _selectedCategory = value ?? 'RPC');
+                setState(() => _selectedCategory = value ?? kDefaultBatchCategory);
               },
             ),
             const SizedBox(height: 16),

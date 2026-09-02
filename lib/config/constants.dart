@@ -66,6 +66,84 @@ InputDecoration kFieldDecoration(String hintOrLabel, {bool isLabel = false}) {
   );
 }
 
+// ---------------- Batch Categories ----------------
+// Single source of truth for the batch "course" categories. Used by the
+// batch category picker screen, and every screen that has a Category
+// dropdown (Add Batch, Bulk Batch Setup, Batch Detail) so they all stay
+// in sync. Batches created before this list existed have no `category`
+// field in Firestore — treat those as 'RPC' everywhere (RPC was the only
+// course originally offered).
+const String kDefaultBatchCategory = 'RPC';
+
+const List<String> kBatchCategories = [
+  'RPC',
+  'Aerial Cinematography',
+  'FPV Pilot',
+  'FPV Build',
+  'Agri Build',
+];
+
+class BatchCategoryInfo {
+  final String key;
+  final String label;
+  final IconData icon;
+  final Color color;
+  const BatchCategoryInfo({
+    required this.key,
+    required this.label,
+    required this.icon,
+    required this.color,
+  });
+}
+
+const List<BatchCategoryInfo> kBatchCategoryInfo = [
+  BatchCategoryInfo(
+      key: 'RPC', label: 'RPC', icon: Icons.flight_takeoff, color: kTeal),
+  BatchCategoryInfo(
+      key: 'Aerial Cinematography',
+      label: 'Aerial Cinematography',
+      icon: Icons.videocam_outlined,
+      color: kPurple),
+  BatchCategoryInfo(
+      key: 'FPV Pilot',
+      label: 'FPV Pilot',
+      icon: Icons.sports_esports_outlined,
+      color: kAmber),
+  BatchCategoryInfo(
+      key: 'FPV Build',
+      label: 'FPV Build',
+      icon: Icons.build_outlined,
+      color: kCoral),
+  BatchCategoryInfo(
+      key: 'Agri Build',
+      label: 'Agri Build',
+      icon: Icons.agriculture_outlined,
+      color: kGreen),
+];
+
+/// Normalizes a raw `category` field from Firestore into one of the 5
+/// known category keys.
+///
+/// Handles every messy real-world case so a batch can never silently
+/// vanish from the category picker:
+///  - missing / blank                       -> RPC
+///  - matches a known category, wrong case
+///    or with stray whitespace ('rpc ',
+///    ' Fpv pilot')                          -> the canonical key
+///  - anything else unrecognized (legacy /
+///    stray data written before this
+///    feature existed, typos, etc.)          -> RPC (the original,
+///                                              only course pre-dating
+///                                              this feature)
+String normalizeBatchCategory(String? raw) {
+  final trimmed = raw?.trim() ?? '';
+  if (trimmed.isEmpty) return kDefaultBatchCategory;
+  for (final known in kBatchCategories) {
+    if (known.toLowerCase() == trimmed.toLowerCase()) return known;
+  }
+  return kDefaultBatchCategory;
+}
+
 // ---------------- Status Color Helper ----------------
 
 Color kStatusColor(String status) {

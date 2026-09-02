@@ -1,22 +1,30 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import '../../config/theme.dart';
 import '../../services/auth_service.dart';
-import '../../widgets/custom_text_field.dart';
 import 'register_screen.dart';
 
-// NOTE: If your project's `lib/config/constants.dart` already defines
-// kNavy / kTeal / kCoral / kAmber / kSurface, feel free to delete these
-// local constants below and import that file instead so this screen
-// shares the exact same tokens as the rest of the RPTO app.
-const _kNavy = Color(0xFF050A14);
-const _kSurface = Color(0xFF0F1B2E);
-const _kTeal = Color(0xFF14B8A6);
-const _kCoralFix = Color(0xFFFF6B6B);
+// ---------------------------------------------------------------------
+// BRIGHT / PREMIUM palette for this screen only. Kept local (not pulled
+// from AppColors in config/theme.dart) because AppColors is the app's
+// dark-navy system used everywhere else -- this screen intentionally
+// breaks from it to match the bright sky/drone/tower background photo.
+// ---------------------------------------------------------------------
+const _kAccent = Color(0xFF185FA5); // primary blue (buttons, links, focus)
+const _kAccentDark = Color(0xFF0C447C); // deep navy-blue (headings, icons)
+const _kAccentSoft = Color(0xFFE6F1FB); // pale blue fill (field bg, chips)
+const _kCard = Colors.white;
+const _kTextDark = Color(0xFF0B2540);
+const _kTextMuted = Color(0xFF6B7A90);
+const _kSuccess = Color(0xFF1F9D5A);
+const _kError = Color(0xFFD64545);
+const _kBgFallback = Color(0xFFDDEEFC);
 
 // Path to the login background photo. Must match EXACTLY what's
-// registered under `flutter: assets:` in pubspec.yaml.
+// registered under `flutter: assets:` in pubspec.yaml. Drop the new
+// sky/drone/CDA-RPTO-tower photo in at this path (replacing the old
+// dark one) -- it already carries the header/logo/title, so the card
+// below only needs the form itself.
 const _kLoginBgAssetPath = 'lib/assets/images/login_page.png';
 
 class LoginScreen extends StatefulWidget {
@@ -35,6 +43,7 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
 
   bool _obscurePassword = true;
   bool _isLoading = false;
+  bool _rememberMe = true;
 
   String _selectedRole = 'Admin';
   final List<_RoleOption> _roles = const [
@@ -45,13 +54,8 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
 
   late final AnimationController _entranceCtrl = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 1100),
+    duration: const Duration(milliseconds: 900),
   )..forward();
-
-  late final AnimationController _ambientCtrl = AnimationController(
-    vsync: this,
-    duration: const Duration(seconds: 6),
-  )..repeat(reverse: true);
 
   Animation<double> _stagger(double start, double end) {
     return CurvedAnimation(
@@ -74,7 +78,6 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
     _emailFocus.dispose();
     _passwordFocus.dispose();
     _entranceCtrl.dispose();
-    _ambientCtrl.dispose();
     super.dispose();
   }
 
@@ -136,16 +139,33 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
     // on their accessStatus. Nothing else to do on this screen.
   }
 
+  Future<void> _handleForgotPassword() async {
+    final email = _emailController.text.trim();
+    if (email.isEmpty || !email.contains('@')) {
+      _showSnack('Enter your email above first, then tap "Forgot password?"', isError: true);
+      return;
+    }
+
+    final error = await AuthService.sendPasswordResetEmail(email);
+    if (!mounted) return;
+
+    if (error != null) {
+      _showSnack(error, isError: true);
+    } else {
+      _showSnack('Password reset link sent to $email');
+    }
+  }
+
   void _showSnack(String message, {bool isError = false}) {
     ScaffoldMessenger.of(context).clearSnackBars();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         behavior: SnackBarBehavior.floating,
-        backgroundColor: isError ? _kCoralFix : _kTeal,
+        backgroundColor: isError ? _kError : _kSuccess,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         content: Text(
           message,
-          style: const TextStyle(fontWeight: FontWeight.w600),
+          style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.white),
         ),
       ),
     );
@@ -154,10 +174,14 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _kNavy,
+      backgroundColor: _kBgFallback,
+      // No scrolling on this screen -- the card is scaled to fit the
+      // available band instead (see FittedBox below), so we don't want
+      // the keyboard to trigger a resize/scroll either.
+      resizeToAvoidBottomInset: false,
       body: Stack(
         children: [
-          _AmbientBackground(controller: _ambientCtrl),
+          const _PhotoBackground(),
           SafeArea(
             child: LayoutBuilder(
               builder: (context, constraints) {
@@ -165,18 +189,23 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                 // photo's own composition, instead of a fixed pixel offset.
                 //
                 // topFlex fixes exactly where the card's TOP edge sits
-                // (as a % of available height) — this never changes when
+                // (as a % of available height) -- this never changes when
                 // the card grows. The remaining space below is one single
                 // Expanded band holding the card top-aligned, so making
                 // the card taller only extends it further DOWN into what
-                // used to be empty bottom space — it can never push
+                // used to be empty bottom space -- it can never push
                 // upward past topFlex.
                 //
-                // Tune these two numbers to match YOUR photo:
-                //   topFlex       -> % taken up by the header/logo/title
-                //   remainderFlex -> % left for the card to sit/grow in
-                const topFlex = 38;
-                const remainderFlex = 62; // was middleFlex(32) + bottomFlex(13)
+                // UPDATED: topFlex lowered (52 -> 34) and remainderFlex
+                // raised (48 -> 66) so the card sits higher up and gets a
+                // much taller band to live in. Previously the card only
+                // had 48% of the screen height, which forced the
+                // FittedBox below to scale the whole card (including all
+                // its text) down to fit on shorter phones -- that's what
+                // was making the labels unreadable. With more room, the
+                // card renders closer to its natural 1.0 scale.
+                const topFlex = 46;
+                const remainderFlex = 54;
 
                 return SizedBox(
                   height: constraints.maxHeight,
@@ -186,19 +215,22 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                       Expanded(
                         flex: remainderFlex,
                         child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
                           child: Align(
                             // topCenter (not Center) is what pins the card's
-                            // top edge in place while letting it grow downward.
+                            // top edge in place.
                             alignment: Alignment.topCenter,
-                            child: SingleChildScrollView(
-                              // If the card is ever too tall for the
-                              // remaining band (very short screens, keyboard
-                              // open), this lets it scroll instead of
-                              // overflowing — it never forces the card
-                              // back upward past its fixed top edge.
+                            // No scrolling on this screen: FittedBox scales
+                            // the card down to fit the remaining band on
+                            // short screens instead of scrolling or
+                            // overflowing. On normal screens the card sits
+                            // at its natural size (scale never exceeds 1.0
+                            // because BoxFit.scaleDown never enlarges).
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.topCenter,
                               child: ConstrainedBox(
-                                constraints: const BoxConstraints(maxWidth: 460),
+                                constraints: const BoxConstraints(maxWidth: 360),
                                 child: _LoginCard(
                                   formKey: _formKey,
                                   roles: _roles,
@@ -210,6 +242,9 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                                   passwordFocus: _passwordFocus,
                                   obscurePassword: _obscurePassword,
                                   onToggleObscure: () => setState(() => _obscurePassword = !_obscurePassword),
+                                  rememberMe: _rememberMe,
+                                  onRememberChanged: (v) => setState(() => _rememberMe = v),
+                                  onForgotPassword: _handleForgotPassword,
                                   isLoading: _isLoading,
                                   onLogin: _handleLogin,
                                   stagger: _stagger,
@@ -217,6 +252,8 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                                     context,
                                     MaterialPageRoute(builder: (_) => const RegisterScreen()),
                                   ),
+                                  onSocialTap: (provider) =>
+                                      _showSnack('$provider sign-in is coming soon.'),
                                 ),
                               ),
                             ),
@@ -235,7 +272,53 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
   }
 }
 
-/// The glass login card itself — pulled out to its own widget purely so
+/// Full-bleed background photo with just enough of a soft white wash at
+/// the very bottom to keep the card's drop shadow and the helipad ground
+/// from competing for attention -- the photo itself stays bright.
+class _PhotoBackground extends StatelessWidget {
+  const _PhotoBackground();
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Image.asset(
+          _kLoginBgAssetPath,
+          fit: BoxFit.cover,
+          alignment: Alignment.topCenter,
+          errorBuilder: (context, error, stackTrace) {
+            return const DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [_kBgFallback, _kAccentSoft],
+                ),
+              ),
+            );
+          },
+        ),
+        const DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Color(0x00FFFFFF),
+                Color(0x1AFFFFFF),
+                Color(0x40FFFFFF),
+              ],
+              stops: [0.5, 0.75, 1.0],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// The premium white login card -- pulled out to its own widget purely so
 /// the proportional-band layout above stays readable.
 class _LoginCard extends StatelessWidget {
   final GlobalKey<FormState> formKey;
@@ -248,10 +331,14 @@ class _LoginCard extends StatelessWidget {
   final FocusNode passwordFocus;
   final bool obscurePassword;
   final VoidCallback onToggleObscure;
+  final bool rememberMe;
+  final ValueChanged<bool> onRememberChanged;
+  final VoidCallback onForgotPassword;
   final bool isLoading;
   final VoidCallback onLogin;
   final Animation<double> Function(double, double) stagger;
   final VoidCallback onRegisterTap;
+  final ValueChanged<String> onSocialTap;
 
   const _LoginCard({
     required this.formKey,
@@ -264,23 +351,25 @@ class _LoginCard extends StatelessWidget {
     required this.passwordFocus,
     required this.obscurePassword,
     required this.onToggleObscure,
+    required this.rememberMe,
+    required this.onRememberChanged,
+    required this.onForgotPassword,
     required this.isLoading,
     required this.onLogin,
     required this.stagger,
     required this.onRegisterTap,
+    required this.onSocialTap,
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 34, vertical: 32),
+      padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
       decoration: BoxDecoration(
-        color: _kSurface.withValues(alpha: 0.7),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+        color: _kCard,
+        borderRadius: BorderRadius.circular(22),
         boxShadow: [
-          BoxShadow(color: _kTeal.withValues(alpha: 0.10), blurRadius: 40, spreadRadius: 4),
-          BoxShadow(color: Colors.black.withValues(alpha: 0.4), blurRadius: 30, offset: const Offset(0, 12)),
+          BoxShadow(color: Colors.black.withValues(alpha: 0.12), blurRadius: 24, offset: const Offset(0, 10)),
         ],
       ),
       child: Form(
@@ -290,6 +379,22 @@ class _LoginCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             _FadeSlideIn(
+              animation: stagger(0.1, 0.6),
+              child: const Text(
+                'Welcome back',
+                style: TextStyle(color: _kTextDark, fontSize: 16, fontWeight: FontWeight.w700),
+              ),
+            ),
+            const SizedBox(height: 2),
+            _FadeSlideIn(
+              animation: stagger(0.12, 0.62),
+              child: const Text(
+                'Login to continue your journey',
+                style: TextStyle(color: _kTextMuted, fontSize: 11),
+              ),
+            ),
+            const SizedBox(height: 14),
+            _FadeSlideIn(
               animation: stagger(0.2, 0.7),
               child: _RoleDropdown(
                 roles: roles,
@@ -297,177 +402,152 @@ class _LoginCard extends StatelessWidget {
                 onChanged: onRoleChanged,
               ),
             ),
-            const SizedBox(height: 18),
+            const SizedBox(height: 10),
             _FadeSlideIn(
               animation: stagger(0.3, 0.8),
-              child: _GlowField(
+              child: _BrightField(
                 focusNode: emailFocus,
-                child: CustomTextField(
-                  controller: emailController,
-                  label: 'Email',
-                  keyboardType: TextInputType.emailAddress,
-                  validator: (value) {
-                    if (value == null || value.isEmpty) return 'Email required';
-                    if (!value.contains('@')) return 'Enter a valid email';
-                    return null;
-                  },
-                ),
+                controller: emailController,
+                label: 'Email',
+                hint: 'Enter your email',
+                icon: Icons.mail_outline_rounded,
+                keyboardType: TextInputType.emailAddress,
+                validator: (value) {
+                  if (value == null || value.isEmpty) return 'Email required';
+                  if (!value.contains('@')) return 'Enter a valid email';
+                  return null;
+                },
               ),
             ),
-            const SizedBox(height: 18),
+            const SizedBox(height: 10),
             _FadeSlideIn(
               animation: stagger(0.35, 0.85),
-              child: _GlowField(
+              child: _BrightField(
                 focusNode: passwordFocus,
-                child: CustomTextField(
-                  controller: passwordController,
-                  label: 'Password',
-                  obscureText: obscurePassword,
-                  suffixIcon: IconButton(
-                    icon: Icon(
-                      obscurePassword ? Icons.visibility_off_rounded : Icons.visibility_rounded,
-                      color: AppColors.textSecondary,
-                    ),
-                    onPressed: onToggleObscure,
+                controller: passwordController,
+                label: 'Password',
+                hint: 'Enter your password',
+                icon: Icons.lock_outline_rounded,
+                obscureText: obscurePassword,
+                suffixIcon: IconButton(
+                  icon: Icon(
+                    obscurePassword ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+                    color: _kTextMuted,
+                    size: 20,
                   ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) return 'Password required';
-                    if (value.length < 6) return 'Minimum 6 characters';
-                    return null;
-                  },
+                  onPressed: onToggleObscure,
                 ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) return 'Password required';
+                  if (value.length < 6) return 'Minimum 6 characters';
+                  return null;
+                },
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 6),
             _FadeSlideIn(
-              animation: stagger(0.45, 0.95),
-              child: _TakeoffButton(
-                isLoading: isLoading,
-                onPressed: onLogin,
+              animation: stagger(0.4, 0.9),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  InkWell(
+                    onTap: () => onRememberChanged(!rememberMe),
+                    borderRadius: BorderRadius.circular(6),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: Checkbox(
+                            value: rememberMe,
+                            onChanged: (v) => onRememberChanged(v ?? true),
+                            activeColor: _kAccent,
+                            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        const Text('Remember me', style: TextStyle(color: _kTextMuted, fontSize: 13)),
+                      ],
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: onForgotPassword,
+                    child: const Text(
+                      'Forgot password?',
+                      style: TextStyle(color: _kAccent, fontSize: 13, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 14),
+            _FadeSlideIn(
+              animation: stagger(0.5, 0.95),
+              child: _LoginButton(isLoading: isLoading, onPressed: onLogin),
+            ),
+            const SizedBox(height: 14),
             _FadeSlideIn(
               animation: stagger(0.55, 1.0),
-              child: TextButton(
-                onPressed: onRegisterTap,
-                child: RichText(
-                  text: const TextSpan(
-                    style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
-                    children: [
-                      TextSpan(text: "Don't have an account?  "),
-                      TextSpan(
-                        text: 'Register',
-                        style: TextStyle(color: _kTeal, fontWeight: FontWeight.w800),
-                      ),
-                    ],
+              child: Row(
+                children: [
+                  const Expanded(child: Divider(color: Color(0xFFE2E8F0))),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: Text('or continue with', style: TextStyle(color: _kTextMuted, fontSize: 10.5)),
+                  ),
+                  const Expanded(child: Divider(color: Color(0xFFE2E8F0))),
+                ],
+              ),
+            ),
+            const SizedBox(height: 10),
+            _FadeSlideIn(
+              animation: stagger(0.6, 1.0),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: _SocialButton(
+                      label: 'Google',
+                      icon: Icons.g_mobiledata_rounded,
+                      onTap: () => onSocialTap('Google'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _SocialButton(
+                      label: 'Microsoft',
+                      icon: Icons.grid_view_rounded,
+                      onTap: () => onSocialTap('Microsoft'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 10),
+            _FadeSlideIn(
+              animation: stagger(0.65, 1.0),
+              child: Center(
+                child: TextButton(
+                  onPressed: onRegisterTap,
+                  style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(0, 0)),
+                  child: RichText(
+                    text: const TextSpan(
+                      style: TextStyle(color: _kTextMuted, fontSize: 13),
+                      children: [
+                        TextSpan(text: "Don't have an account?  "),
+                        TextSpan(
+                          text: 'Register',
+                          style: TextStyle(color: _kAccent, fontWeight: FontWeight.w700),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _FadeSlideIn extends StatelessWidget {
-  final Animation<double> animation;
-  final Widget child;
-
-  const _FadeSlideIn({required this.animation, required this.child});
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: animation,
-      child: child,
-      builder: (context, child) {
-        return Opacity(
-          opacity: animation.value.clamp(0.0, 1.0),
-          child: Transform.translate(
-            offset: Offset(0, (1 - animation.value) * 18),
-            child: child,
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _AmbientBackground extends StatelessWidget {
-  final AnimationController controller;
-  const _AmbientBackground({required this.controller});
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: controller,
-      builder: (context, _) {
-        final t = controller.value;
-        return Stack(
-          fit: StackFit.expand,
-          children: [
-            // Full-bleed background photo. Sits at the very bottom of the
-            // stack so it never overlaps/competes with the form — the
-            // form is always painted on top of it, not beside or into it.
-            Image.asset(
-              _kLoginBgAssetPath,
-              fit: BoxFit.cover,
-              alignment: Alignment.topCenter,
-              errorBuilder: (context, error, stackTrace) {
-                return const DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [_kNavy, _kSurface],
-                    ),
-                  ),
-                );
-              },
-            ),
-            // Light scrim, just enough to keep the photo from looking
-            // washed-out white behind light UI chrome — the card itself
-            // (not this layer) is what keeps the form readable now.
-            const DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Color(0x33050A14), // ~20% navy
-                    Color(0x40050A14), // ~25% navy
-                    Color(0x59050A14), // ~35% navy
-                  ],
-                  stops: [0.0, 0.55, 1.0],
-                ),
-              ),
-            ),
-            Positioned(
-              top: -140 + (t * 20),
-              right: -100,
-              child: _glow(_kTeal.withValues(alpha: 0.16), 320),
-            ),
-            Positioned(
-              bottom: -160 - (t * 20),
-              left: -120,
-              child: _glow(_kCoralFix.withValues(alpha: 0.10), 340),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _glow(Color color, double size) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        boxShadow: [BoxShadow(color: color, blurRadius: 160, spreadRadius: 60)],
       ),
     );
   }
@@ -492,36 +572,26 @@ class _RoleDropdown extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'LOGIN AS',
-          style: TextStyle(
-            color: AppColors.textSecondary,
-            fontSize: 12.5,
-            fontWeight: FontWeight.w800,
-            letterSpacing: 1.6,
-          ),
+          'Login as',
+          style: TextStyle(color: _kTextMuted, fontSize: 11, fontWeight: FontWeight.w600),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 4),
         Container(
           decoration: BoxDecoration(
-            color: _kSurface,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+            color: _kAccentSoft,
+            borderRadius: BorderRadius.circular(12),
           ),
           child: DropdownButtonHideUnderline(
             child: DropdownButtonFormField<String>(
-              value: selected,
+              initialValue: selected,
               isExpanded: true,
-              icon: const Icon(Icons.keyboard_arrow_down_rounded, color: _kTeal),
-              dropdownColor: _kSurface,
-              borderRadius: BorderRadius.circular(14),
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 15,
-                fontWeight: FontWeight.w700,
-              ),
+              icon: const Icon(Icons.keyboard_arrow_down_rounded, color: _kAccent, size: 20),
+              dropdownColor: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              style: const TextStyle(color: _kTextDark, fontSize: 13, fontWeight: FontWeight.w600),
               decoration: const InputDecoration(
                 border: InputBorder.none,
-                contentPadding: EdgeInsets.symmetric(horizontal: 18, vertical: 18),
+                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               ),
               items: roles.map((role) {
                 return DropdownMenuItem<String>(
@@ -529,8 +599,8 @@ class _RoleDropdown extends StatelessWidget {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(role.icon, size: 18, color: _kTeal),
-                      const SizedBox(width: 10),
+                      Icon(role.icon, size: 16, color: _kAccentDark),
+                      const SizedBox(width: 8),
                       Text(role.label),
                     ],
                   ),
@@ -547,44 +617,146 @@ class _RoleDropdown extends StatelessWidget {
   }
 }
 
-class _GlowField extends StatelessWidget {
+/// Bright, pill-filled text field with a leading icon -- matches the
+/// login card's light aesthetic. Kept local to this screen rather than
+/// reusing the app-wide CustomTextField, which is styled for the app's
+/// dark InputDecorationTheme.
+class _BrightField extends StatelessWidget {
   final FocusNode focusNode;
-  final Widget child;
+  final TextEditingController controller;
+  final String label;
+  final String hint;
+  final IconData icon;
+  final bool obscureText;
+  final TextInputType keyboardType;
+  final Widget? suffixIcon;
+  final String? Function(String?)? validator;
 
-  const _GlowField({required this.focusNode, required this.child});
+  const _BrightField({
+    required this.focusNode,
+    required this.controller,
+    required this.label,
+    required this.hint,
+    required this.icon,
+    this.obscureText = false,
+    this.keyboardType = TextInputType.text,
+    this.suffixIcon,
+    this.validator,
+  });
 
   @override
   Widget build(BuildContext context) {
     final isFocused = focusNode.hasFocus;
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 220),
-      curve: Curves.easeOut,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: isFocused
-            ? [BoxShadow(color: _kTeal.withValues(alpha: 0.28), blurRadius: 18, spreadRadius: 1)]
-            : [],
-        border: Border.all(
-          color: isFocused ? _kTeal.withValues(alpha: 0.7) : Colors.transparent,
-          width: 1.4,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: const TextStyle(color: _kTextMuted, fontSize: 11, fontWeight: FontWeight.w600)),
+        const SizedBox(height: 4),
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          decoration: BoxDecoration(
+            color: _kAccentSoft,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: isFocused ? _kAccent : Colors.transparent, width: 1.2),
+          ),
+          child: TextFormField(
+            controller: controller,
+            focusNode: focusNode,
+            obscureText: obscureText,
+            keyboardType: keyboardType,
+            validator: validator,
+            style: const TextStyle(color: _kTextDark, fontSize: 13),
+            decoration: InputDecoration(
+              hintText: hint,
+              hintStyle: const TextStyle(color: _kTextMuted, fontSize: 12),
+              prefixIcon: Icon(icon, size: 18, color: _kAccentDark),
+              suffixIcon: suffixIcon,
+              filled: false,
+              border: InputBorder.none,
+              errorBorder: InputBorder.none,
+              focusedBorder: InputBorder.none,
+              enabledBorder: InputBorder.none,
+              focusedErrorBorder: InputBorder.none,
+              contentPadding: const EdgeInsets.symmetric(vertical: 10),
+              errorStyle: const TextStyle(color: _kError, fontSize: 10.5),
+            ),
+          ),
         ),
-      ),
-      child: child,
+      ],
     );
   }
 }
 
-class _TakeoffButton extends StatefulWidget {
+class _SocialButton extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const _SocialButton({required this.label, required this.icon, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          height: 38,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFE2E8F0)),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 16, color: _kTextDark),
+              const SizedBox(width: 5),
+              Text(label, style: const TextStyle(color: _kTextDark, fontSize: 11.5, fontWeight: FontWeight.w600)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _FadeSlideIn extends StatelessWidget {
+  final Animation<double> animation;
+  final Widget child;
+
+  const _FadeSlideIn({required this.animation, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: animation,
+      child: child,
+      builder: (context, child) {
+        return Opacity(
+          opacity: animation.value.clamp(0.0, 1.0),
+          child: Transform.translate(
+            offset: Offset(0, (1 - animation.value) * 16),
+            child: child,
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _LoginButton extends StatefulWidget {
   final bool isLoading;
   final VoidCallback onPressed;
 
-  const _TakeoffButton({required this.isLoading, required this.onPressed});
+  const _LoginButton({required this.isLoading, required this.onPressed});
 
   @override
-  State<_TakeoffButton> createState() => _TakeoffButtonState();
+  State<_LoginButton> createState() => _LoginButtonState();
 }
 
-class _TakeoffButtonState extends State<_TakeoffButton> {
+class _LoginButtonState extends State<_LoginButton> {
   double _scale = 1.0;
 
   void _setScale(double value) => setState(() => _scale = value);
@@ -600,33 +772,31 @@ class _TakeoffButtonState extends State<_TakeoffButton> {
         scale: _scale,
         duration: const Duration(milliseconds: 120),
         child: Container(
-          height: 56,
+          height: 42,
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            gradient: LinearGradient(
-              colors: widget.isLoading
-                  ? [_kTeal.withValues(alpha: 0.5), const Color(0xFF0D3894).withValues(alpha: 0.5)]
-                  : const [_kTeal, Color(0xFF0D3894)],
-            ),
+            borderRadius: BorderRadius.circular(12),
+            color: widget.isLoading ? _kAccent.withValues(alpha: 0.6) : _kAccent,
             boxShadow: [
-              BoxShadow(color: _kTeal.withValues(alpha: 0.35), blurRadius: 20, offset: const Offset(0, 8)),
+              BoxShadow(color: _kAccent.withValues(alpha: 0.35), blurRadius: 14, offset: const Offset(0, 6)),
             ],
           ),
           child: widget.isLoading
               ? const SizedBox(
-            height: 22,
-            width: 22,
-            child: CircularProgressIndicator(strokeWidth: 2.4, color: Colors.white),
+            height: 18,
+            width: 18,
+            child: CircularProgressIndicator(strokeWidth: 2.2, color: Colors.white),
           )
-              : const Text(
-            'LOGIN',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 16,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 1.4,
-            ),
+              : const Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.login_rounded, color: Colors.white, size: 16),
+              SizedBox(width: 6),
+              Text(
+                'Login',
+                style: TextStyle(color: Colors.white, fontSize: 13.5, fontWeight: FontWeight.w700),
+              ),
+            ],
           ),
         ),
       ),
