@@ -94,7 +94,12 @@ class AccessControlService {
     required String role,
   }) async {
     final roleLower = role.trim().toLowerCase();
-    final isAdminRole = roleLower == 'admin' || isAdminEmail(email);
+    // Email is the sole admin signal (see app_admin.dart) — a user
+    // typing/selecting role 'admin' does NOT make them one. This used
+    // to be `roleLower == 'admin' || isAdminEmail(email)`, which let
+    // anyone grant themselves full editor+approved access just by
+    // choosing "Admin" at registration.
+    final isAdminRole = isAdminEmail(email);
 
     await _users.doc(uid).set({
       'accessLevel': accessLevelToString(
@@ -152,7 +157,13 @@ class AccessControlService {
 
     final data = snap.data()!;
     final role = (data['role'] as String? ?? '').trim().toLowerCase();
-    final isAdminRole = role == 'admin' || isAdminEmail(firebaseUser.email);
+    // Email is the sole admin signal (see app_admin.dart) — this used
+    // to be `role == 'admin' || isAdminEmail(...)`, which meant ANY
+    // account with role:'admin' in its Firestore doc (e.g. self-set
+    // at sign-up) was granted full admin powers here regardless of
+    // its email. Only the exact kAdminEmail account gets treated as
+    // admin now, no matter what `role` says.
+    final isAdminRole = isAdminEmail(firebaseUser.email);
 
     final hasAccessFields = data.containsKey('accessStatus');
     final currentStatus =

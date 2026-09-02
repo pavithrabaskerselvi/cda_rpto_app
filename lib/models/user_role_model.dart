@@ -13,6 +13,8 @@
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../core/constants/app_admin.dart';
+
 /// Access level an instructor/student can be granted by the admin.
 /// Admin accounts always have full access regardless of this value
 /// (see [AppUserAccess.canEdit] / [AppUserAccess.canView]).
@@ -97,7 +99,16 @@ class AppUserAccess {
     this.isOnline = false,
   });
 
-  bool get isAdmin => role == 'admin';
+  // Admin status is decided by email alone (kAdminEmail /
+  // isAdminEmail() — the single source of truth, see app_admin.dart),
+  // never by the mutable `role` string on this document. Previously
+  // this was `role == 'admin'`, which meant anyone who got an
+  // 'admin' value into their own Firestore doc — e.g. by picking
+  // "Admin" on the sign-up screen — was treated as a real admin
+  // throughout the app. Keeping `role` as a display/branch-logic
+  // field only, and gating actual admin power strictly on the email,
+  // closes that hole regardless of what `role` ends up containing.
+  bool get isAdmin => isAdminEmail(email);
   bool get isInstructor => role == 'instructor';
   bool get isStudent => role == 'student';
 

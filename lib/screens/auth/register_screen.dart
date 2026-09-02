@@ -47,9 +47,13 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
   final _emailFocus = FocusNode();
   final _passwordFocus = FocusNode();
 
-  String _selectedRole = 'admin';
+  // 'Admin' is intentionally NOT an option here. There is exactly one
+  // admin account (info@chennaidroneacademy.com — see app_admin.dart),
+  // provisioned directly, not self-registered. Letting anyone pick
+  // "Admin" on this screen was the actual hole that let other email
+  // addresses get treated as admin in the app.
+  String _selectedRole = 'instructor';
   final List<Map<String, dynamic>> _roles = [
-    {'value': 'admin', 'label': 'Admin', 'icon': Icons.shield_outlined},
     {'value': 'instructor', 'label': 'Instructor', 'icon': Icons.badge_outlined},
     {'value': 'student', 'label': 'Student', 'icon': Icons.school_outlined},
   ];
@@ -72,7 +76,10 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
     );
   }
 
-  bool get _requiresBranch => _selectedRole != 'admin';
+  // Both remaining self-registration roles (instructor, student) need
+  // a branch. Kept as a getter (rather than inlining `true`) in case a
+  // role that doesn't need a branch is ever added back.
+  bool get _requiresBranch => true;
 
   @override
   void initState() {
