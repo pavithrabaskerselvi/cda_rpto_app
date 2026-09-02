@@ -18,6 +18,7 @@ import '../screens/admin/employee_access_screen.dart';
 import '../screens/admin/admin_notifications_screen.dart';
 import '../screens/admin/activity_feed_screen.dart';
 import '../screens/admin/access_hub_screen.dart';
+import '../widgets/role_gated_widget.dart';
 
 class AppRoutes {
   static const String login = '/login';
@@ -101,10 +102,18 @@ class AppRoutes {
       batchCategory: (context) => const BatchCategoryScreen(),
       bulkBatchSetup: (context) => const BulkBatchSetupScreen(),
       vaultHome: (context) => const VaultHomeScreen(),
-      employeeAccess: (context) => const EmployeeAccessScreen(),
-      adminNotifications: (context) => const AdminNotificationsScreen(),
-      activityFeed: (context) => const ActivityFeedScreen(),
-      accessHub: (context) => const AccessHubScreen(),
+      // These four are admin-only. AdminOnlyScreen re-checks the
+      // signed-in user's role every time the route builds, so a direct
+      // URL visit (e.g. Flutter web's #/access-hub) or a bookmarked
+      // link is blocked the same way the hidden dashboard tile is —
+      // hiding the tile alone does not stop direct navigation.
+      employeeAccess: (context) =>
+      const AdminOnlyScreen(child: EmployeeAccessScreen()),
+      adminNotifications: (context) =>
+      const AdminOnlyScreen(child: AdminNotificationsScreen()),
+      activityFeed: (context) =>
+      const AdminOnlyScreen(child: ActivityFeedScreen()),
+      accessHub: (context) => const AdminOnlyScreen(child: AccessHubScreen()),
       // Remaining routes added as we build each module
     };
   }

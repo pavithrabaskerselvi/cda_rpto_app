@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 // TODO: point this to wherever your app decides Admin/Instructor/Student
 // routing after splash — usually an AuthGate widget in main.dart.
@@ -70,20 +69,20 @@ class _SplashScreenState extends State<SplashScreen>
   late final List<_Star> _stars =
   List.generate(36, (i) => _Star.random(math.Random(i * 97)));
 
-  // Radar sweep rotation — one full rotation every 2.2s.
-  late final AnimationController _sweepCtrl = AnimationController(
+  // Staggered pulse loop that drives the three loading dots.
+  late final AnimationController _dotsCtrl = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 2200),
+    duration: const Duration(milliseconds: 1200),
   )..repeat();
 
-  // Expanding "ping" ring every 1.6s.
-  late final AnimationController _pingCtrl = AnimationController(
+  // Shimmer highlight that runs along the progress bar.
+  late final AnimationController _shimmerCtrl = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 1600),
+    duration: const Duration(milliseconds: 1300),
   )..repeat();
 
-  // Overall load progress — drives the status label, % readout, and the
-  // radar's "locked on" state once it reaches 100%.
+  // Overall load progress — drives the bar fill and the "locked on" color
+  // swap (blue/teal -> green) once it reaches 100%.
   late final AnimationController _progressCtrl = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 2400),
@@ -118,17 +117,10 @@ class _SplashScreenState extends State<SplashScreen>
     _navTimer?.cancel();
     _entranceCtrl.dispose();
     _starsCtrl.dispose();
-    _sweepCtrl.dispose();
-    _pingCtrl.dispose();
+    _dotsCtrl.dispose();
+    _shimmerCtrl.dispose();
     _progressCtrl.dispose();
     super.dispose();
-  }
-
-  String _statusLabel(double progress) {
-    if (progress < 0.25) return 'INITIALIZING RPTO SYSTEM';
-    if (progress < 0.55) return 'SCANNING AIRSPACE';
-    if (progress < 0.85) return 'PRE-FLIGHT READY';
-    return 'CLEARED FOR TAKEOFF';
   }
 
   @override
@@ -189,24 +181,13 @@ class _SplashScreenState extends State<SplashScreen>
             ),
           ),
 
-          // ── 3. Top strapline ────────────────────────────────────────────
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: FadeTransition(
-                opacity: _fadeAnimation,
-                child: const _TopStrapline(),
-              ),
-            ),
-          ),
-
-          // ── 4. Thin bottom scrim — only shades the strip behind the
-          // radar/loading readout, not the artwork above it. ─────────────
+          // ── 3. Thin bottom scrim — only shades the strip behind the
+          // loading indicator, not the artwork above it. ─────────────────
           Positioned(
             left: 0,
             right: 0,
             bottom: 0,
-            height: size.height * 0.14,
+            height: size.height * 0.16,
             child: IgnorePointer(
               child: DecoratedBox(
                 decoration: BoxDecoration(
@@ -215,7 +196,7 @@ class _SplashScreenState extends State<SplashScreen>
                     end: Alignment.bottomCenter,
                     colors: [
                       _kNavy.withValues(alpha: 0.0),
-                      _kNavy.withValues(alpha: 0.82),
+                      _kNavy.withValues(alpha: 0.85),
                     ],
                   ),
                 ),
@@ -223,67 +204,39 @@ class _SplashScreenState extends State<SplashScreen>
             ),
           ),
 
-          // ── 5. Radar-scanner loading indicator, pinned to the bottom
-          // safe-area edge. ────────────────────────────────────────────
+          // ── 4. Loading indicator — three staggered, glowing pulse dots
+          // paired with a shimmering gradient progress bar underneath.
+          // No ring, purely visual, no text. ──────────────────────────────
           Positioned(
             left: 0,
             right: 0,
             bottom: 0,
             child: SafeArea(
               child: Padding(
-                padding: const EdgeInsets.only(bottom: 16),
+                padding: const EdgeInsets.only(bottom: 20),
                 child: FadeTransition(
                   opacity: _fadeAnimation,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.center,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       AnimatedBuilder(
-                        animation:
-                        Listenable.merge([_sweepCtrl, _pingCtrl, _progressCtrl]),
+                        animation: Listenable.merge([_dotsCtrl, _progressCtrl]),
                         builder: (context, _) {
-                          return SizedBox(
-                            width: 32,
-                            height: 32,
-                            child: CustomPaint(
-                              painter: _RadarPainter(
-                                sweepAngle: _sweepCtrl.value * 2 * math.pi,
-                                pingProgress: _pingCtrl.value,
-                                lockedOn: _progressAnimation.value >= 1.0,
-                              ),
-                            ),
+                          return _PulseDots(
+                            t: _dotsCtrl.value,
+                            lockedOn: _progressAnimation.value >= 1.0,
                           );
                         },
                       ),
-                      const SizedBox(width: 10),
+                      const SizedBox(height: 14),
                       AnimatedBuilder(
-                        animation: _progressCtrl,
+                        animation: Listenable.merge(
+                            [_shimmerCtrl, _progressCtrl]),
                         builder: (context, _) {
-                          final pct = (_progressAnimation.value * 100).round();
-                          return Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                '${_statusLabel(_progressAnimation.value)}...',
-                                style: GoogleFonts.orbitron(
-                                  color: Colors.white70,
-                                  fontSize: 10.5,
-                                  fontWeight: FontWeight.w600,
-                                  letterSpacing: 1.0,
-                                ),
-                              ),
-                              const SizedBox(height: 3),
-                              Text(
-                                '$pct%',
-                                style: GoogleFonts.orbitron(
-                                  color: _kTeal,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w700,
-                                  letterSpacing: 1.0,
-                                ),
-                              ),
-                            ],
+                          return _ShimmerProgressBar(
+                            progress: _progressAnimation.value,
+                            shimmerT: _shimmerCtrl.value,
+                            lockedOn: _progressAnimation.value >= 1.0,
                           );
                         },
                       ),
@@ -299,128 +252,150 @@ class _SplashScreenState extends State<SplashScreen>
   }
 }
 
-/// ---------------------------------------------------------------------------
-/// Small letter-spaced strapline above the hero image: "LEARN · INNOVATE ·
-/// FLY".
-/// ---------------------------------------------------------------------------
-class _TopStrapline extends StatelessWidget {
-  const _TopStrapline();
+// ═══════════════════════════════════════════════════════════════════════════
+//  PULSE DOTS
+//  Three glowing dots that scale/fade in a staggered wave (each offset by
+//  a fixed phase), cycling blue -> teal, and swapping to green once
+//  loading is complete. Themed with RPTO's teal/blue.
+// ═══════════════════════════════════════════════════════════════════════════
+class _PulseDots extends StatelessWidget {
+  final double t; // looping 0..1
+  final bool lockedOn;
+
+  const _PulseDots({required this.t, required this.lockedOn});
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Text(
-        'LEARN   ·   INNOVATE   ·   FLY',
-        style: GoogleFonts.orbitron(
-          color: Colors.white70,
-          fontSize: 10.5,
-          fontWeight: FontWeight.w600,
-          letterSpacing: 2.0,
-        ),
-      ),
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: List.generate(3, (i) {
+        final phase = i * 0.22;
+        final wave = (math.sin((t + phase) * 2 * math.pi) + 1) / 2; // 0..1
+        final scale = 0.55 + wave * 0.55;
+        final opacity = 0.35 + wave * 0.65;
+        final color = lockedOn ? _kGreen : Color.lerp(_kBlue, _kTeal, wave)!;
+
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 5),
+          child: Transform.scale(
+            scale: scale,
+            child: Container(
+              width: 11,
+              height: 11,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: color.withValues(alpha: opacity),
+                boxShadow: [
+                  BoxShadow(
+                    color: color.withValues(alpha: opacity * 0.55),
+                    blurRadius: 8,
+                    spreadRadius: 1,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      }),
     );
   }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  RADAR PAINTER
-//  Circular scanner: grid rings, rotating sweep beam, expanding ping ring,
-//  and a locked-on blip once loading completes. Themed with RPTO's teal.
+//  SHIMMER PROGRESS BAR
+//  Rounded track with a gradient fill that grows with progress, plus a
+//  soft diagonal shimmer highlight that sweeps across the filled portion.
 // ═══════════════════════════════════════════════════════════════════════════
-class _RadarPainter extends CustomPainter {
-  final double sweepAngle;
-  final double pingProgress;
+class _ShimmerProgressBar extends StatelessWidget {
+  final double progress;
+  final double shimmerT;
   final bool lockedOn;
 
-  const _RadarPainter({
-    required this.sweepAngle,
-    required this.pingProgress,
+  const _ShimmerProgressBar({
+    required this.progress,
+    required this.shimmerT,
     required this.lockedOn,
   });
 
+  static const double _width = 120;
+  static const double _height = 4;
+
   @override
-  void paint(Canvas canvas, Size size) {
-    final center = size.center(Offset.zero);
-    final radius = size.width / 2;
-
-    canvas.drawCircle(
-      center,
-      radius,
-      Paint()
-        ..shader = RadialGradient(
-          colors: [_kSurface, _kNavy],
-        ).createShader(Rect.fromCircle(center: center, radius: radius)),
-    );
-
-    final gridPaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1
-      ..color = _kTeal.withValues(alpha: 0.18);
-    for (int i = 1; i <= 3; i++) {
-      canvas.drawCircle(center, radius * i / 3, gridPaint);
-    }
-    canvas.drawLine(center - Offset(radius, 0), center + Offset(radius, 0), gridPaint);
-    canvas.drawLine(center - Offset(0, radius), center + Offset(0, radius), gridPaint);
-
-    canvas.save();
-    canvas.clipPath(Path()..addOval(Rect.fromCircle(center: center, radius: radius)));
-    canvas.translate(center.dx, center.dy);
-    canvas.rotate(sweepAngle);
-    final sweepRect = Rect.fromCircle(center: Offset.zero, radius: radius);
-    canvas.drawArc(
-      sweepRect,
-      0,
-      math.pi / 2.4,
-      true,
-      Paint()
-        ..shader = SweepGradient(
-          startAngle: 0,
-          endAngle: math.pi / 2.4,
-          colors: [
-            _kTeal.withValues(alpha: 0.55),
-            _kTeal.withValues(alpha: 0.0),
-          ],
-        ).createShader(sweepRect),
-    );
-    canvas.restore();
-
-    final pingRadius = radius * pingProgress;
-    canvas.drawCircle(
-      center,
-      pingRadius,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.4
-        ..color = _kTeal.withValues(alpha: (1 - pingProgress) * 0.8),
-    );
-
-    canvas.drawCircle(
-      center,
-      radius - 1,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.4
-        ..color = Colors.white.withValues(alpha: 0.18),
-    );
-
-    final blipColor = lockedOn
-        ? _kGreen
-        : Color.lerp(_kBlue, _kTeal, (math.sin(sweepAngle) + 1) / 2)!;
-    canvas.drawCircle(center, 4, Paint()..color = blipColor);
-    canvas.drawCircle(
-      center,
-      8,
-      Paint()
-        ..color = blipColor.withValues(alpha: 0.35)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5),
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: _width,
+      height: _height,
+      child: Stack(
+        children: [
+          // Track.
+          Container(
+            width: _width,
+            height: _height,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(_height),
+            ),
+          ),
+          // Fill.
+          ClipRRect(
+            borderRadius: BorderRadius.circular(_height),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: FractionallySizedBox(
+                widthFactor: progress.clamp(0.0, 1.0),
+                child: Container(
+                  height: _height,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: lockedOn
+                          ? [_kGreen, _kTeal]
+                          : [_kBlue, _kTeal],
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: (lockedOn ? _kGreen : _kTeal).withValues(alpha: 0.6),
+                        blurRadius: 6,
+                      ),
+                    ],
+                  ),
+                  child: ShaderMask(
+                    blendMode: BlendMode.srcATop,
+                    shaderCallback: (rect) {
+                      final dx = (shimmerT * 2 - 0.5) * rect.width;
+                      return LinearGradient(
+                        colors: [
+                          Colors.white.withValues(alpha: 0.0),
+                          Colors.white.withValues(alpha: 0.55),
+                          Colors.white.withValues(alpha: 0.0),
+                        ],
+                        stops: const [0.35, 0.5, 0.65],
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
+                        transform: _SlideGradient(dx),
+                      ).createShader(rect);
+                    },
+                    child: const SizedBox.expand(),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
+}
+
+/// Shifts a gradient horizontally by [dx] logical pixels — used to slide
+/// the shimmer highlight across the progress bar fill each frame.
+class _SlideGradient extends GradientTransform {
+  final double dx;
+  const _SlideGradient(this.dx);
 
   @override
-  bool shouldRepaint(covariant _RadarPainter old) =>
-      old.sweepAngle != sweepAngle ||
-          old.pingProgress != pingProgress ||
-          old.lockedOn != lockedOn;
+  Matrix4? transform(Rect bounds, {TextDirection? textDirection}) {
+    return Matrix4.translationValues(dx, 0, 0);
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

@@ -3,10 +3,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../../services/auth_service.dart';
 
-import '../../services/access_control_service.dart';
-import '../../widgets/custom_text_field.dart';
-
-
 // ---------------------------------------------------------------------
 // BRIGHT / PREMIUM palette -- kept in sync with login_screen.dart so
 // both auth screens read as one continuous experience. Local to these
@@ -142,47 +138,44 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
       });
     }
 
-    // Admin facility hook: creates the access-control fields on this
-    // brand-new user and — for a non-admin role — immediately notifies
-    // the admin. This fires right now, at registration time, so the
-    // request already shows up in AdminNotificationsScreen even before
-    // the instructor logs in for the first time.
-    if (uid != null) {
-      await AccessControlService.createAccessRequestOnRegister(
-        uid: uid,
-        name: _nameController.text.trim(),
-        email: _emailController.text.trim(),
-        role: _selectedRole,
-      );
-    }
+    // Firebase signs the newly-created account in automatically. If we
+    // leave them signed in here, the root AuthGate (in main.dart) reacts
+    // to that auth-state change immediately and routes straight to the
+    // Pending Approval screen, skipping Login entirely. Sign back out so
+    // AuthGate falls back to LoginScreen, and the user lands on Pending
+    // Approval only after they explicitly log in.
+    await FirebaseAuth.instance.signOut();
 
     if (!mounted) return;
     setState(() => _isLoading = false);
-    Navigator.pop(context);
+    // Return `true` so LoginScreen knows to show a success message.
+    Navigator.pop(context, true);
   }
 
   @override
   Widget build(BuildContext context) {
+    // Keyboard visibility: when it's open we shrink the top spacer band
+    // so the card gets pushed up into the visible area above the
+    // keyboard, instead of staying pinned at its normal position and
+    // getting covered by the keyboard.
+    final keyboardOpen = MediaQuery.of(context).viewInsets.bottom > 0;
+
     return Scaffold(
       backgroundColor: _kBgFallback,
       extendBodyBehindAppBar: true,
-      // Mirrors login_screen.dart: no scrolling / no resize on keyboard.
-      // The card is scaled to fit the same proportional band instead,
-      // so both auth screens render at matching sizes.
-      resizeToAvoidBottomInset: false,
+      // MUST be true (the default). This lets the body height shrink
+      // when the keyboard opens so the bands below recalculate and the
+      // card moves up above the keyboard instead of getting covered.
+      resizeToAvoidBottomInset: true,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         iconTheme: const IconThemeData(color: _kAccentDark),
       ),
       // ---------------------------------------------------------------
-      // UPDATED: swapped the old bottom-sheet layout (Align bottomCenter
-      // + fractional maxHeight + internal ScrollView) for the SAME
-      // proportional-band + FittedBox(scaleDown) approach used on
-      // login_screen.dart. topFlex/remainderFlex match the login screen
-      // exactly, so the two cards occupy the same band and get scaled
-      // down together -- the register card no longer grows taller than
-      // the login card.
+      // Proportional-band + FittedBox(scaleDown) approach, matching
+      // login_screen.dart. topFlex collapses when the keyboard is open
+      // so the card slides up above it instead of getting covered.
       // ---------------------------------------------------------------
       body: Stack(
         children: [
@@ -190,8 +183,14 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
           SafeArea(
             child: LayoutBuilder(
               builder: (context, constraints) {
-                const topFlex = 46;
-                const remainderFlex = 54;
+                // Base ratio (keyboard closed) is 32/68 -- the register
+                // card has more fields than the login card, so it gets a
+                // bigger band to render closer to its natural 1.0 scale.
+                // When the keyboard opens, topFlex collapses to 6 so the
+                // (taller) card gets maximum room to scale into above the
+                // keyboard instead of being covered by it.
+                final topFlex = keyboardOpen ? 6 : 32;
+                final remainderFlex = 100 - topFlex;
 
                 return SizedBox(
                   height: constraints.maxHeight,
@@ -208,7 +207,7 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
                               fit: BoxFit.scaleDown,
                               alignment: Alignment.topCenter,
                               child: ConstrainedBox(
-                                constraints: const BoxConstraints(maxWidth: 360),
+                                constraints: const BoxConstraints(maxWidth: 380),
                                 child: _RegisterCard(
                                   formKey: _formKey,
                                   stagger: _stagger,

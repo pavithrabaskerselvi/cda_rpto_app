@@ -173,12 +173,20 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
 
   @override
   Widget build(BuildContext context) {
+    // Keyboard visibility: when it's open we shrink the top spacer band
+    // so the card gets pushed up into the visible area above the
+    // keyboard, instead of staying pinned at its normal position and
+    // getting covered by the keyboard.
+    final keyboardOpen = MediaQuery.of(context).viewInsets.bottom > 0;
+
     return Scaffold(
       backgroundColor: _kBgFallback,
-      // No scrolling on this screen -- the card is scaled to fit the
-      // available band instead (see FittedBox below), so we don't want
-      // the keyboard to trigger a resize/scroll either.
-      resizeToAvoidBottomInset: false,
+      // MUST be true (the default). This lets the Scaffold's body height
+      // actually shrink when the keyboard opens, which is what makes the
+      // FittedBox(scaleDown) + proportional bands below recalculate and
+      // keep the fields visible above the keyboard instead of hidden
+      // behind it.
+      resizeToAvoidBottomInset: true,
       body: Stack(
         children: [
           const _PhotoBackground(),
@@ -189,23 +197,21 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                 // photo's own composition, instead of a fixed pixel offset.
                 //
                 // topFlex fixes exactly where the card's TOP edge sits
-                // (as a % of available height) -- this never changes when
-                // the card grows. The remaining space below is one single
+                // (as a % of available height) when the keyboard is
+                // closed. The remaining space below is one single
                 // Expanded band holding the card top-aligned, so making
                 // the card taller only extends it further DOWN into what
                 // used to be empty bottom space -- it can never push
                 // upward past topFlex.
                 //
-                // UPDATED: topFlex lowered (52 -> 34) and remainderFlex
-                // raised (48 -> 66) so the card sits higher up and gets a
-                // much taller band to live in. Previously the card only
-                // had 48% of the screen height, which forced the
-                // FittedBox below to scale the whole card (including all
-                // its text) down to fit on shorter phones -- that's what
-                // was making the labels unreadable. With more room, the
-                // card renders closer to its natural 1.0 scale.
-                const topFlex = 46;
-                const remainderFlex = 54;
+                // When the keyboard is open, topFlex collapses way down
+                // (46 -> 6) so the card slides up near the top of the
+                // now-shrunk viewport instead of staying at its normal
+                // resting position and getting covered by the keyboard.
+                // remainderFlex grows to match, giving FittedBox as much
+                // room as possible to render the card above the keyboard.
+                final topFlex = keyboardOpen ? 6 : 46;
+                final remainderFlex = 100 - topFlex;
 
                 return SizedBox(
                   height: constraints.maxHeight,
@@ -222,10 +228,10 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                             alignment: Alignment.topCenter,
                             // No scrolling on this screen: FittedBox scales
                             // the card down to fit the remaining band on
-                            // short screens instead of scrolling or
-                            // overflowing. On normal screens the card sits
-                            // at its natural size (scale never exceeds 1.0
-                            // because BoxFit.scaleDown never enlarges).
+                            // short screens (or whenever the keyboard has
+                            // eaten into the available height) instead of
+                            // scrolling or overflowing. Scale never exceeds
+                            // 1.0 because BoxFit.scaleDown never enlarges.
                             child: FittedBox(
                               fit: BoxFit.scaleDown,
                               alignment: Alignment.topCenter,
@@ -248,12 +254,15 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                                   isLoading: _isLoading,
                                   onLogin: _handleLogin,
                                   stagger: _stagger,
-                                  onRegisterTap: () => Navigator.push(
-                                    context,
-                                    MaterialPageRoute(builder: (_) => const RegisterScreen()),
-                                  ),
-                                  onSocialTap: (provider) =>
-                                      _showSnack('$provider sign-in is coming soon.'),
+                                  onRegisterTap: () async {
+                                    final registered = await Navigator.push<bool>(
+                                      context,
+                                      MaterialPageRoute(builder: (_) => const RegisterScreen()),
+                                    );
+                                    if (registered == true && mounted) {
+                                      _showSnack('Registration successful! Please log in to continue.');
+                                    }
+                                  },
                                 ),
                               ),
                             ),
@@ -320,6 +329,11 @@ class _PhotoBackground extends StatelessWidget {
 
 /// The premium white login card -- pulled out to its own widget purely so
 /// the proportional-band layout above stays readable.
+///
+/// UPDATED: removed the "or continue with" divider + Google/Microsoft
+/// social sign-in row entirely (those providers weren't wired up to
+/// anything yet). The card now goes straight from the Login button to
+/// the "Don't have an account? Register" link.
 class _LoginCard extends StatelessWidget {
   final GlobalKey<FormState> formKey;
   final List<_RoleOption> roles;
@@ -338,7 +352,6 @@ class _LoginCard extends StatelessWidget {
   final VoidCallback onLogin;
   final Animation<double> Function(double, double) stagger;
   final VoidCallback onRegisterTap;
-  final ValueChanged<String> onSocialTap;
 
   const _LoginCard({
     required this.formKey,
@@ -358,7 +371,6 @@ class _LoginCard extends StatelessWidget {
     required this.onLogin,
     required this.stagger,
     required this.onRegisterTap,
-    required this.onSocialTap,
   });
 
   @override
@@ -489,44 +501,7 @@ class _LoginCard extends StatelessWidget {
             ),
             const SizedBox(height: 14),
             _FadeSlideIn(
-              animation: stagger(0.55, 1.0),
-              child: Row(
-                children: [
-                  const Expanded(child: Divider(color: Color(0xFFE2E8F0))),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    child: Text('or continue with', style: TextStyle(color: _kTextMuted, fontSize: 10.5)),
-                  ),
-                  const Expanded(child: Divider(color: Color(0xFFE2E8F0))),
-                ],
-              ),
-            ),
-            const SizedBox(height: 10),
-            _FadeSlideIn(
               animation: stagger(0.6, 1.0),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: _SocialButton(
-                      label: 'Google',
-                      icon: Icons.g_mobiledata_rounded,
-                      onTap: () => onSocialTap('Google'),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _SocialButton(
-                      label: 'Microsoft',
-                      icon: Icons.grid_view_rounded,
-                      onTap: () => onSocialTap('Microsoft'),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 10),
-            _FadeSlideIn(
-              animation: stagger(0.65, 1.0),
               child: Center(
                 child: TextButton(
                   onPressed: onRegisterTap,
@@ -683,41 +658,6 @@ class _BrightField extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _SocialButton extends StatelessWidget {
-  final String label;
-  final IconData icon;
-  final VoidCallback onTap;
-
-  const _SocialButton({required this.label, required this.icon, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(14),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
-        child: Container(
-          height: 38,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFFE2E8F0)),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, size: 16, color: _kTextDark),
-              const SizedBox(width: 5),
-              Text(label, style: const TextStyle(color: _kTextDark, fontSize: 11.5, fontWeight: FontWeight.w600)),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }
