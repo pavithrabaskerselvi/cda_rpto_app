@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import 'access_control_service.dart';
+
 /// StudentService
 /// --------------
 /// ASSUMPTIONS (adjust to your real schema):
@@ -18,6 +20,10 @@ class StudentService {
     try {
       data['createdAt'] = DateTime.now().toIso8601String();
       await _ref.add(data);
+      await AccessControlService.logCurrentUserAction(
+        action: 'student_created',
+        detail: 'Added student "${data['name'] ?? ''}"',
+      );
       return null;
     } catch (e) {
       return e.toString();
@@ -58,6 +64,10 @@ class StudentService {
       String studentId, Map<String, dynamic> data) async {
     try {
       await _ref.doc(studentId).update(data);
+      await AccessControlService.logCurrentUserAction(
+        action: 'student_updated',
+        detail: 'Updated student (id: $studentId)',
+      );
       return null;
     } catch (e) {
       return e.toString();
@@ -67,6 +77,10 @@ class StudentService {
   static Future<String?> deleteStudent(String studentId) async {
     try {
       await _ref.doc(studentId).delete();
+      await AccessControlService.logCurrentUserAction(
+        action: 'student_deleted',
+        detail: 'Deleted student (id: $studentId)',
+      );
       return null;
     } catch (e) {
       return e.toString();
@@ -77,6 +91,10 @@ class StudentService {
       String studentId, String batchId) async {
     try {
       await _ref.doc(studentId).update({'batchId': batchId});
+      await AccessControlService.logCurrentUserAction(
+        action: 'student_assigned_to_batch',
+        detail: 'Assigned student (id: $studentId) to batch (id: $batchId)',
+      );
       return null;
     } catch (e) {
       return e.toString();
@@ -90,6 +108,10 @@ class StudentService {
       await _ref.doc(studentId).update({
         'droneHoursLogged': FieldValue.increment(hours),
       });
+      await AccessControlService.logCurrentUserAction(
+        action: 'student_hours_logged',
+        detail: 'Logged $hours drone hours for student (id: $studentId)',
+      );
       return null;
     } catch (e) {
       return e.toString();

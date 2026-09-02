@@ -13,6 +13,10 @@ import '../controllers/bulk_import_controller.dart';
 import '../screens/import/drone_bulk_import_screen.dart';
 import '../controllers/drone_bulk_import_controller.dart';
 import '../screens/vault/vault_home_screen.dart';
+import '../screens/admin/employee_access_screen.dart';
+import '../screens/admin/admin_notifications_screen.dart';
+import '../screens/admin/activity_feed_screen.dart';
+import '../screens/admin/access_hub_screen.dart';
 
 class AppRoutes {
   static const String login = '/login';
@@ -51,6 +55,15 @@ class AppRoutes {
   // instead of going through named routes.
   static const String vaultHome = '/vault-home';
 
+  // Admin facility
+  // NOTE: employeeAccess, adminNotifications, and activityFeed are kept
+  // as-is (unchanged) and are now reached via the single Access Hub tile
+  // on the dashboard, instead of three separate dashboard tiles.
+  static const String employeeAccess = '/employee-access';
+  static const String adminNotifications = '/admin-notifications';
+  static const String activityFeed = '/activity-feed';
+  static const String accessHub = '/access-hub';
+
   // Bulk Import (student documents)
   // NOTE: intentionally NOT in the `routes` map below — it needs an
   // optional argument (batchName) to support "import for this batch
@@ -79,6 +92,10 @@ class AppRoutes {
       batchAdd: (context) => const AddBatchScreen(),
       bulkBatchSetup: (context) => const BulkBatchSetupScreen(),
       vaultHome: (context) => const VaultHomeScreen(),
+      employeeAccess: (context) => const EmployeeAccessScreen(),
+      adminNotifications: (context) => const AdminNotificationsScreen(),
+      activityFeed: (context) => const ActivityFeedScreen(),
+      accessHub: (context) => const AccessHubScreen(),
       // Remaining routes added as we build each module
     };
   }

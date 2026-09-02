@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import 'access_control_service.dart';
+
 /// DroneService
 /// ASSUMPTIONS:
 ///   collection: "drones"
@@ -16,6 +18,10 @@ class DroneService {
       data['createdAt'] = DateTime.now().toIso8601String();
       data['totalFlightHours'] ??= 0.0;
       await _ref.add(data);
+      await AccessControlService.logCurrentUserAction(
+        action: 'drone_created',
+        detail: 'Added drone "${data['model'] ?? ''}"',
+      );
       return null;
     } catch (e) {
       return e.toString();
@@ -59,6 +65,10 @@ class DroneService {
       String droneId, Map<String, dynamic> data) async {
     try {
       await _ref.doc(droneId).update(data);
+      await AccessControlService.logCurrentUserAction(
+        action: 'drone_updated',
+        detail: 'Updated drone (id: $droneId)',
+      );
       return null;
     } catch (e) {
       return e.toString();
@@ -68,6 +78,10 @@ class DroneService {
   static Future<String?> deleteDrone(String droneId) async {
     try {
       await _ref.doc(droneId).delete();
+      await AccessControlService.logCurrentUserAction(
+        action: 'drone_deleted',
+        detail: 'Deleted drone (id: $droneId)',
+      );
       return null;
     } catch (e) {
       return e.toString();
@@ -79,6 +93,10 @@ class DroneService {
       await _ref.doc(droneId).update({
         'totalFlightHours': FieldValue.increment(hours),
       });
+      await AccessControlService.logCurrentUserAction(
+        action: 'drone_flight_hours_logged',
+        detail: 'Logged $hours flight hours for drone (id: $droneId)',
+      );
       return null;
     } catch (e) {
       return e.toString();
@@ -88,6 +106,10 @@ class DroneService {
   static Future<String?> setStatus(String droneId, String status) async {
     try {
       await _ref.doc(droneId).update({'status': status});
+      await AccessControlService.logCurrentUserAction(
+        action: 'drone_status_changed',
+        detail: 'Set drone (id: $droneId) status to "$status"',
+      );
       return null;
     } catch (e) {
       return e.toString();

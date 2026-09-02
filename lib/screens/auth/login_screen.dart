@@ -115,9 +115,12 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
       return;
     }
 
-    final actualRole = userDoc.data()?['role'] ?? '';
+    // Stored role is always lowercase (see AuthService.register), so
+    // compare case-insensitively against the capitalized labels used by
+    // the role picker on this screen.
+    final actualRole = (userDoc.data()?['role'] as String? ?? '').trim();
 
-    if (actualRole != _selectedRole) {
+    if (actualRole.toLowerCase() != _selectedRole.toLowerCase()) {
       setState(() => _isLoading = false);
       await FirebaseAuth.instance.signOut();
       if (!mounted) return;
@@ -127,6 +130,10 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
 
     if (!mounted) return;
     setState(() => _isLoading = false);
+    // Login is done here — AuthGate (main.dart) picks up the
+    // authStateChanges event that just fired, loads this user's access
+    // record, and routes to Dashboard / PendingApprovalScreen depending
+    // on their accessStatus. Nothing else to do on this screen.
   }
 
   void _showSnack(String message, {bool isError = false}) {

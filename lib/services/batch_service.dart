@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import 'access_control_service.dart';
+
 /// BatchService
 /// ASSUMPTIONS:
 ///   collection: "batches"
@@ -16,6 +18,10 @@ class BatchService {
       data['studentIds'] ??= <String>[];
       data['instructorIds'] ??= <String>[];
       await _ref.add(data);
+      await AccessControlService.logCurrentUserAction(
+        action: 'batch_created',
+        detail: 'Created batch "${data['name'] ?? ''}"',
+      );
       return null;
     } catch (e) {
       return e.toString();
@@ -50,6 +56,10 @@ class BatchService {
       String batchId, Map<String, dynamic> data) async {
     try {
       await _ref.doc(batchId).update(data);
+      await AccessControlService.logCurrentUserAction(
+        action: 'batch_updated',
+        detail: 'Updated batch (id: $batchId)',
+      );
       return null;
     } catch (e) {
       return e.toString();
@@ -59,6 +69,10 @@ class BatchService {
   static Future<String?> deleteBatch(String batchId) async {
     try {
       await _ref.doc(batchId).delete();
+      await AccessControlService.logCurrentUserAction(
+        action: 'batch_deleted',
+        detail: 'Deleted batch (id: $batchId)',
+      );
       return null;
     } catch (e) {
       return e.toString();
@@ -71,6 +85,10 @@ class BatchService {
       await _ref.doc(batchId).update({
         'studentIds': FieldValue.arrayUnion([studentId]),
       });
+      await AccessControlService.logCurrentUserAction(
+        action: 'batch_student_added',
+        detail: 'Added a student to batch (id: $batchId)',
+      );
       return null;
     } catch (e) {
       return e.toString();
@@ -83,6 +101,10 @@ class BatchService {
       await _ref.doc(batchId).update({
         'studentIds': FieldValue.arrayRemove([studentId]),
       });
+      await AccessControlService.logCurrentUserAction(
+        action: 'batch_student_removed',
+        detail: 'Removed a student from batch (id: $batchId)',
+      );
       return null;
     } catch (e) {
       return e.toString();
@@ -95,6 +117,10 @@ class BatchService {
       await _ref.doc(batchId).update({
         'instructorIds': FieldValue.arrayUnion([instructorId]),
       });
+      await AccessControlService.logCurrentUserAction(
+        action: 'batch_instructor_added',
+        detail: 'Added an instructor to batch (id: $batchId)',
+      );
       return null;
     } catch (e) {
       return e.toString();

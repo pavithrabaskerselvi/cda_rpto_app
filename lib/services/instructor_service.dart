@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import 'access_control_service.dart';
+
 /// InstructorService
 /// ASSUMPTIONS:
 ///   collection: "instructors"
@@ -14,6 +16,10 @@ class InstructorService {
     try {
       data['createdAt'] = DateTime.now().toIso8601String();
       await _ref.add(data);
+      await AccessControlService.logCurrentUserAction(
+        action: 'instructor_created',
+        detail: 'Added instructor "${data['name'] ?? ''}"',
+      );
       return null;
     } catch (e) {
       return e.toString();
@@ -46,6 +52,10 @@ class InstructorService {
       String instructorId, Map<String, dynamic> data) async {
     try {
       await _ref.doc(instructorId).update(data);
+      await AccessControlService.logCurrentUserAction(
+        action: 'instructor_updated',
+        detail: 'Updated instructor (id: $instructorId)',
+      );
       return null;
     } catch (e) {
       return e.toString();
@@ -55,6 +65,10 @@ class InstructorService {
   static Future<String?> deleteInstructor(String instructorId) async {
     try {
       await _ref.doc(instructorId).delete();
+      await AccessControlService.logCurrentUserAction(
+        action: 'instructor_deleted',
+        detail: 'Deleted instructor (id: $instructorId)',
+      );
       return null;
     } catch (e) {
       return e.toString();
@@ -67,6 +81,10 @@ class InstructorService {
       await _ref.doc(instructorId).update({
         'assignedBatchIds': FieldValue.arrayUnion([batchId]),
       });
+      await AccessControlService.logCurrentUserAction(
+        action: 'instructor_assigned_batch',
+        detail: 'Assigned instructor (id: $instructorId) to batch (id: $batchId)',
+      );
       return null;
     } catch (e) {
       return e.toString();
@@ -79,6 +97,10 @@ class InstructorService {
       await _ref.doc(instructorId).update({
         'assignedBatchIds': FieldValue.arrayRemove([batchId]),
       });
+      await AccessControlService.logCurrentUserAction(
+        action: 'instructor_unassigned_batch',
+        detail: 'Unassigned instructor (id: $instructorId) from batch (id: $batchId)',
+      );
       return null;
     } catch (e) {
       return e.toString();

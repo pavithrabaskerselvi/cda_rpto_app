@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../../config/theme.dart';
 import '../../services/auth_service.dart';
+import '../../services/access_control_service.dart';
 import '../../widgets/custom_text_field.dart';
 
 // NOTE: If your project's `lib/config/constants.dart` already defines
@@ -136,6 +137,20 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
       await FirebaseFirestore.instance.collection('users').doc(uid).update({
         'branch': _selectedBranch,
       });
+    }
+
+    // Admin facility hook: creates the access-control fields on this
+    // brand-new user and — for a non-admin role — immediately notifies
+    // the admin. This fires right now, at registration time, so the
+    // request already shows up in AdminNotificationsScreen even before
+    // the instructor logs in for the first time.
+    if (uid != null) {
+      await AccessControlService.createAccessRequestOnRegister(
+        uid: uid,
+        name: _nameController.text.trim(),
+        email: _emailController.text.trim(),
+        role: _selectedRole,
+      );
     }
 
     if (!mounted) return;

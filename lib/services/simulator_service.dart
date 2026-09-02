@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import 'access_control_service.dart';
+
 /// SimulatorService
 /// ASSUMPTIONS:
 ///   collection: "simulator_sessions"
@@ -15,6 +17,10 @@ class SimulatorService {
     try {
       data['createdAt'] = DateTime.now().toIso8601String();
       await _ref.add(data);
+      await AccessControlService.logCurrentUserAction(
+        action: 'sim_session_created',
+        detail: 'Added a simulator session',
+      );
       return null;
     } catch (e) {
       return e.toString();
@@ -49,6 +55,10 @@ class SimulatorService {
       String sessionId, Map<String, dynamic> data) async {
     try {
       await _ref.doc(sessionId).update(data);
+      await AccessControlService.logCurrentUserAction(
+        action: 'sim_session_updated',
+        detail: 'Updated simulator session (id: $sessionId)',
+      );
       return null;
     } catch (e) {
       return e.toString();
@@ -58,6 +68,10 @@ class SimulatorService {
   static Future<String?> deleteSession(String sessionId) async {
     try {
       await _ref.doc(sessionId).delete();
+      await AccessControlService.logCurrentUserAction(
+        action: 'sim_session_deleted',
+        detail: 'Deleted simulator session (id: $sessionId)',
+      );
       return null;
     } catch (e) {
       return e.toString();
