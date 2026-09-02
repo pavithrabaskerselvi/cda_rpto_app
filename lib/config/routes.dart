@@ -67,9 +67,6 @@ class AppRoutes {
   static const String vaultHome = '/vault-home';
 
   // Admin facility
-  // NOTE: employeeAccess, adminNotifications, and activityFeed are kept
-  // as-is (unchanged) and are now reached via the single Access Hub tile
-  // on the dashboard, instead of three separate dashboard tiles.
   static const String employeeAccess = '/employee-access';
   static const String adminNotifications = '/admin-notifications';
   static const String activityFeed = '/activity-feed';
