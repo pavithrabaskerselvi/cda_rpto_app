@@ -17,6 +17,7 @@ import 'providers/language_provider.dart';
 import 'providers/vault_provider.dart';
 import 'providers/role_provider.dart';
 import 'services/access_control_service.dart';
+import 'services/auth_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -106,19 +107,46 @@ class AuthGate extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<User?>(
-      stream: FirebaseAuth.instance.authStateChanges(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
-          );
-        }
-        final user = snapshot.data;
-        if (user == null) {
-          return const LoginScreen();
-        }
-        return _RoleGate(user: user);
+    // Gate on AuthService.isVerifyingLogin FIRST, before even looking at
+    // authStateChanges. login_screen flips this true right before it
+    // signs in, and only flips it back false once its own post-sign-in
+    // checks (isAdminEmail / role-vs-dropdown match) have fully resolved
+    // — including any signOut() they trigger.
+    //
+    // IMPORTANT: while verifying, this must keep rendering LoginScreen
+    // itself — NOT a separate spinner widget. Swapping to a different
+    // widget here unmounts LoginScreen's State mid-flight (its
+    // _handleLogin() is still awaiting Firestore/Firebase calls), which
+    // trips every `if (!mounted) return;` guard inside it and skips the
+    // isAdminEmail/role checks (and the signOut() they're supposed to
+    // trigger) entirely — silently letting a mismatched login through.
+    // This was the actual bug behind "picking Admin with any email logs
+    // straight into the app, no error."
+    return ValueListenableBuilder<bool>(
+      valueListenable: AuthService.isVerifyingLogin,
+      builder: (context, verifying, _) {
+        return StreamBuilder<User?>(
+          stream: FirebaseAuth.instance.authStateChanges(),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Scaffold(
+                body: Center(child: CircularProgressIndicator()),
+              );
+            }
+            // Still verifying (login_screen's post-sign-in checks are in
+            // flight) — stay on LoginScreen regardless of what
+            // authStateChanges just reported, so its State/checks are
+            // never torn down mid-check.
+            if (verifying) {
+              return const LoginScreen();
+            }
+            final user = snapshot.data;
+            if (user == null) {
+              return const LoginScreen();
+            }
+            return _RoleGate(user: user);
+          },
+        );
       },
     );
   }
@@ -141,7 +169,13 @@ class _RoleGateState extends State<_RoleGate> {
   @override
   void initState() {
     super.initState();
-    _future = _load();
+    // Deferred to a microtask: _load() awaits roleProvider.loadFromFirebaseUser(),
+    // which calls notifyListeners() before its first `await`. Calling it directly
+    // from initState runs that notifyListeners() synchronously while Flutter is
+    // still building this widget's subtree, which throws "setState() or
+    // markNeedsBuild() called during build". Future.microtask pushes the call
+    // to right after the current build finishes, avoiding that.
+    _future = Future.microtask(() => _load());
   }
 
   @override
@@ -150,7 +184,9 @@ class _RoleGateState extends State<_RoleGate> {
     // A different user signed in (e.g. sign out -> sign in as someone
     // else without the widget tree fully rebuilding) — reload.
     if (oldWidget.user.uid != widget.user.uid) {
-      _future = _load();
+      // Same reasoning as initState above — didUpdateWidget also runs
+      // during the build phase, so defer for the same reason.
+      _future = Future.microtask(() => _load());
     }
   }
 
@@ -198,4 +234,3 @@ class _RoleGateState extends State<_RoleGate> {
     );
   }
 }
-

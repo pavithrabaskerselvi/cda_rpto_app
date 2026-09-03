@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import '../../core/constants/app_admin.dart';
 import '../../services/auth_service.dart';
 import 'register_screen.dart';
 
@@ -45,11 +46,16 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
   bool _isLoading = false;
   bool _rememberMe = true;
 
+  // 'Admin' is selectable again, but it's gated by email, not just the
+  // dropdown pick — see the isAdminEmail() check in _handleLogin below.
+  // Picking "Admin" with any other account gets rejected with an error;
+  // it does NOT grant admin access just for being selected.
   String _selectedRole = 'Admin';
   final List<_RoleOption> _roles = const [
     _RoleOption('Admin', Icons.shield_moon_rounded),
     _RoleOption('Instructor', Icons.flight_class_rounded),
     _RoleOption('Student', Icons.school_rounded),
+    _RoleOption('Staff', Icons.badge_rounded),
   ];
 
   late final AnimationController _entranceCtrl = AnimationController(
@@ -86,57 +92,88 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
 
     setState(() => _isLoading = true);
 
-    final error = await AuthService.login(
-      email: _emailController.text,
-      password: _passwordController.text,
-    );
+    // Held true for the ENTIRE validation window below, starting before
+    // sign-in and ending only once we've either let a valid account
+    // through or signed an invalid one back out. See the comment on
+    // AuthService.isVerifyingLogin: this stops main.dart's AuthGate from
+    // racing ahead on the authStateChanges event that signInWithEmailAndPassword
+    // fires immediately on success, which used to let a non-admin email
+    // that picked "Admin" (or any role/actual-role mismatch) straight
+    // into the app — with this screen unmounted before the error could
+    // even show.
+    AuthService.isVerifyingLogin.value = true;
+    try {
+      final error = await AuthService.login(
+        email: _emailController.text,
+        password: _passwordController.text,
+      );
 
-    if (!mounted) return;
+      if (!mounted) return;
 
-    if (error != null) {
-      setState(() => _isLoading = false);
-      _showSnack(error, isError: true);
-      return;
-    }
+      if (error != null) {
+        setState(() => _isLoading = false);
+        _showSnack(error, isError: true);
+        return;
+      }
 
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) {
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid == null) {
+        if (!mounted) return;
+        setState(() => _isLoading = false);
+        return;
+      }
+
+      final userDoc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
+
+      if (!mounted) return;
+
+      if (!userDoc.exists) {
+        setState(() => _isLoading = false);
+        await FirebaseAuth.instance.signOut();
+        if (!mounted) return;
+        _showSnack('User profile not found. Contact admin.', isError: true);
+        return;
+      }
+
+      // Stored role is always lowercase (see AuthService.register), so
+      // compare case-insensitively against the capitalized labels used by
+      // the role picker on this screen.
+      final actualRole = (userDoc.data()?['role'] as String? ?? '').trim();
+
+      if (_selectedRole.toLowerCase() == 'admin') {
+        // Admin access is gated by email alone (see app_admin.dart /
+        // isAdminEmail) — same rule access_control_service.dart and
+        // firestore.rules already enforce app-wide. The Firestore
+        // 'role' field is NEVER trusted for this by itself, so picking
+        // "Admin" here does nothing on its own — only this exact email
+        // gets through.
+        if (!isAdminEmail(FirebaseAuth.instance.currentUser?.email)) {
+          setState(() => _isLoading = false);
+          await FirebaseAuth.instance.signOut();
+          if (!mounted) return;
+          _showSnack('This email is not authorized to log in as Admin.', isError: true);
+          return;
+        }
+      } else if (actualRole.toLowerCase() != _selectedRole.toLowerCase()) {
+        setState(() => _isLoading = false);
+        await FirebaseAuth.instance.signOut();
+        if (!mounted) return;
+        _showSnack('Role mismatch: your account is registered as "$actualRole".', isError: true);
+        return;
+      }
+
       if (!mounted) return;
       setState(() => _isLoading = false);
-      return;
+      // Login is done here — AuthGate (main.dart) picks up the
+      // authStateChanges event that just fired, loads this user's access
+      // record, and routes to Dashboard / PendingApprovalScreen depending
+      // on their accessStatus. Nothing else to do on this screen.
+    } finally {
+      // Whatever happened above (success, signed back out, or an early
+      // return), AuthGate is now safe to react to the current auth
+      // state — release the gate.
+      AuthService.isVerifyingLogin.value = false;
     }
-
-    final userDoc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
-
-    if (!mounted) return;
-
-    if (!userDoc.exists) {
-      setState(() => _isLoading = false);
-      await FirebaseAuth.instance.signOut();
-      if (!mounted) return;
-      _showSnack('User profile not found. Contact admin.', isError: true);
-      return;
-    }
-
-    // Stored role is always lowercase (see AuthService.register), so
-    // compare case-insensitively against the capitalized labels used by
-    // the role picker on this screen.
-    final actualRole = (userDoc.data()?['role'] as String? ?? '').trim();
-
-    if (actualRole.toLowerCase() != _selectedRole.toLowerCase()) {
-      setState(() => _isLoading = false);
-      await FirebaseAuth.instance.signOut();
-      if (!mounted) return;
-      _showSnack('Role mismatch: your account is registered as "$actualRole".', isError: true);
-      return;
-    }
-
-    if (!mounted) return;
-    setState(() => _isLoading = false);
-    // Login is done here — AuthGate (main.dart) picks up the
-    // authStateChanges event that just fired, loads this user's access
-    // record, and routes to Dashboard / PendingApprovalScreen depending
-    // on their accessStatus. Nothing else to do on this screen.
   }
 
   Future<void> _handleForgotPassword() async {
@@ -292,18 +329,35 @@ class _PhotoBackground extends StatelessWidget {
     return Stack(
       fit: StackFit.expand,
       children: [
-        Image.asset(
-          _kLoginBgAssetPath,
-          fit: BoxFit.cover,
-          alignment: Alignment.topCenter,
-          errorBuilder: (context, error, stackTrace) {
-            return const DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [_kBgFallback, _kAccentSoft],
-                ),
+        // The source photo is a tall/portrait image. On a wide window
+        // (Windows desktop, or a maximized/landscape browser tab) using
+        // BoxFit.cover would crop off both left and right edges to fill
+        // the width, cutting off the logo/banner text. Below a rough
+        // portrait/landscape threshold we keep BoxFit.cover (mobile/web,
+        // where the window is already narrow and cropping is minimal);
+        // above it we switch to BoxFit.contain on a matching blue
+        // backdrop so the whole photo stays visible, letterboxed instead
+        // of cropped.
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final isWide = constraints.maxWidth > constraints.maxHeight * 0.75;
+            return DecoratedBox(
+              decoration: const BoxDecoration(color: _kBgFallback),
+              child: Image.asset(
+                _kLoginBgAssetPath,
+                fit: isWide ? BoxFit.contain : BoxFit.cover,
+                alignment: Alignment.topCenter,
+                errorBuilder: (context, error, stackTrace) {
+                  return const DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [_kBgFallback, _kAccentSoft],
+                      ),
+                    ),
+                  );
+                },
               ),
             );
           },

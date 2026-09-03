@@ -1,9 +1,30 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 
 class AuthService {
   static final FirebaseAuth _auth = FirebaseAuth.instance;
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
+  // True from the moment login_screen calls signInWithEmailAndPassword
+  // until it finishes validating the signed-in account (role/email
+  // checks) and either lets the user through or signs them back out.
+  //
+  // WHY THIS EXISTS: signInWithEmailAndPassword fires
+  // FirebaseAuth.authStateChanges() the instant it succeeds. main.dart's
+  // AuthGate listens to that same stream at the app root and reacts
+  // immediately — it doesn't know login_screen still has post-sign-in
+  // checks (isAdminEmail, role-vs-dropdown match) in flight. Without
+  // this flag, AuthGate races ahead and shows Dashboard/PendingApproval
+  // using the account's REAL stored role/access, regardless of what the
+  // user picked on the login screen or whether the checks below are
+  // about to sign them out — and by the time they fail, LoginScreen is
+  // already unmounted so the error snackbar silently never shows. This
+  // was the "logs in with any email as Admin, no error shown" bug.
+  //
+  // AuthGate must stay on a spinner (not react to authStateChanges)
+  // for as long as this is true.
+  static final ValueNotifier<bool> isVerifyingLogin = ValueNotifier<bool>(false);
 
   static User? get currentUser => _auth.currentUser;
 

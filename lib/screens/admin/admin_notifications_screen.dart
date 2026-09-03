@@ -98,6 +98,23 @@ class _NotificationList extends StatelessWidget {
             child: CircularProgressIndicator(color: colors.accent),
           );
         }
+        if (snapshot.hasError) {
+          // Without this, a failed query (e.g. missing Firestore composite
+          // index, or a security-rules denial) silently falls through to
+          // `snapshot.data ?? []`, which looks identical to "no requests" —
+          // this is what caused real pending requests to flash and then
+          // disappear. Surface the real error instead.
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Text(
+                'Could not load ${status.name} requests:\n${snapshot.error}',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.plusJakartaSans(color: colors.danger),
+              ),
+            ),
+          );
+        }
         final items = snapshot.data ?? const <AdminNotificationModel>[];
         if (items.isEmpty) {
           return Center(

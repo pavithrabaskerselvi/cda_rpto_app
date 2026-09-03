@@ -56,6 +56,7 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
   final List<Map<String, dynamic>> _roles = [
     {'value': 'instructor', 'label': 'Instructor', 'icon': Icons.badge_outlined},
     {'value': 'student', 'label': 'Student', 'icon': Icons.school_outlined},
+    {'value': 'staff', 'label': 'Staff', 'icon': Icons.badge_rounded},
   ];
 
   String? _selectedBranch;
@@ -76,8 +77,8 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
     );
   }
 
-  // Both remaining self-registration roles (instructor, student) need
-  // a branch. Kept as a getter (rather than inlining `true`) in case a
+  // All self-registration roles (instructor, student, staff) need a
+  // branch. Kept as a getter (rather than inlining `true`) in case a
   // role that doesn't need a branch is ever added back.
   bool get _requiresBranch => true;
 
@@ -590,18 +591,31 @@ class _PhotoBackground extends StatelessWidget {
     return Stack(
       fit: StackFit.expand,
       children: [
-        Image.asset(
-          _kBgAssetPath,
-          fit: BoxFit.cover,
-          alignment: Alignment.topCenter,
-          errorBuilder: (context, error, stackTrace) {
-            return const DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [_kBgFallback, _kAccentSoft],
-                ),
+        // Same fix as login_screen.dart's _PhotoBackground: the source
+        // photo is portrait, so BoxFit.cover on a wide window (Windows
+        // desktop) crops the left/right edges off. Switch to
+        // BoxFit.contain on a matching blue backdrop above a rough
+        // portrait/landscape threshold so the full photo stays visible.
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final isWide = constraints.maxWidth > constraints.maxHeight * 0.75;
+            return DecoratedBox(
+              decoration: const BoxDecoration(color: _kBgFallback),
+              child: Image.asset(
+                _kBgAssetPath,
+                fit: isWide ? BoxFit.contain : BoxFit.cover,
+                alignment: Alignment.topCenter,
+                errorBuilder: (context, error, stackTrace) {
+                  return const DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [_kBgFallback, _kAccentSoft],
+                      ),
+                    ),
+                  );
+                },
               ),
             );
           },
