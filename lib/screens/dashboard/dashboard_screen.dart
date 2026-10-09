@@ -21,14 +21,12 @@ import '../vault/vault_home_screen.dart';
 import '../analytics/analytics_overview_screen.dart';
 import '../admin/employee_access_screen.dart';
 import '../admin/admin_notifications_screen.dart';
+import '../aerial_fpv/aerial_fpv_home_screen.dart'; // NEW
 import '../../widgets/role_gated_widget.dart';
 
 /// Dashboard restyled as a flight-instrument / HUD panel: corner-bracket
 /// "targeting" frames, a radar sweep behind the crest, monospace readouts,
-/// and a squadron of big flying drones sweeping the header. Every recurring
-/// device (brackets, ticks, tabular clock) is drawn from the same aviation-
-/// console vocabulary so the page reads as one instrument, not a stack of
-/// cards.
+/// and a squadron of big flying drones sweeping the header.
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
 
@@ -42,36 +40,21 @@ class _DashboardScreenState extends State<DashboardScreen>
   DateTime _now = DateTime.now();
   String? _userName;
 
-  // Drives the radar sweep behind the crest.
   late AnimationController _radarController;
-  // Drives the shimmer callsign text and the status-dot pulse.
   late AnimationController _pulseController;
-  // Drives the drones that periodically fly across the header.
   late AnimationController _droneController;
 
   int _navIndex = 0;
 
-  // Dark navy used for text/icons that sit on the WHITE body area below the
-  // header (e.g. the "CONTROL MODULES" eyebrow) — matches the navy CDA uses
-  // in its own site's body copy.
   static const Color _headerText = Color(0xFF0A2540);
-
-  // White/near-white used for text/icons that sit INSIDE the navy header
-  // band, mirroring chennaidroneacademy.com's dark-navy hero with white
-  // headline text over it.
   static const Color _headerOnDark = Colors.white;
   static const Color _headerOnDarkMuted = Color(0xFFC7D2E8);
 
-  // The site's hero uses a dark-navy-to-royal-blue diagonal wash — reused
-  // here for the dashboard header band.
   static const List<Color> _heroNavy = [
     Color(0xFF0A1628),
     Color(0xFF1B3B7A),
   ];
 
-  // Glowing electric-blue used for the flying-drone animation — matches
-  // the reference "targeting HUD" quadcopter look: X-shaped arms, circular
-  // rotor rings with a soft glow, and a lit-up center body.
   static const Color _droneColor = Color(0xFF4FC3F7);
 
   @override
@@ -92,8 +75,6 @@ class _DashboardScreenState extends State<DashboardScreen>
       duration: const Duration(seconds: 2),
     )..repeat();
 
-    // One flight every 7s, with a pause between passes so it reads as a
-    // recurring event rather than constant noise.
     _droneController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 7),
@@ -153,12 +134,10 @@ class _DashboardScreenState extends State<DashboardScreen>
     if (index == _navIndex) return;
 
     if (index == 2) {
-      // Profile tab tapped — open the real Profile screen.
       Navigator.push(
         context,
         MaterialPageRoute(builder: (_) => const ProfileScreen()),
       ).then((_) {
-        // Reset nav highlight back to Home after returning from Profile.
         if (mounted) setState(() => _navIndex = 0);
       });
       return;
@@ -167,7 +146,6 @@ class _DashboardScreenState extends State<DashboardScreen>
     setState(() => _navIndex = index);
 
     if (index == 1) {
-      // Search tab tapped — open the real Search screen.
       setState(() => _navIndex = 0);
       Navigator.push(
         context,
@@ -178,8 +156,6 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   @override
   Widget build(BuildContext context) {
-    // Nunito applied page-wide: every Text/_ShimmerText on this screen
-    // inherits it, including the clock and readouts.
     final nunitoTheme = GoogleFonts.nunitoTextTheme(Theme.of(context).textTheme);
 
     return Theme(
@@ -187,14 +163,12 @@ class _DashboardScreenState extends State<DashboardScreen>
         textTheme: nunitoTheme,
         primaryTextTheme: nunitoTheme,
       ),
-      // ---------- Page-wide white backdrop ----------
       child: Container(
         decoration: const BoxDecoration(
           color: Colors.white,
         ),
         child: Scaffold(
           backgroundColor: Colors.transparent,
-          // ---------- Left side navigation drawer: all modules + logout ----------
           drawer: _HudDrawer(userName: _userName),
           body: SafeArea(
             bottom: false,
@@ -209,7 +183,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // ---------- Header: status strip, radar crest, callsign, flying drones ----------
+                    // ---------- Header ----------
                     Container(
                       width: double.infinity,
                       padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
@@ -223,9 +197,6 @@ class _DashboardScreenState extends State<DashboardScreen>
                       child: Stack(
                         clipBehavior: Clip.none,
                         children: [
-                          // Flying drones: sweep left-to-right across the header,
-                          // banking slightly, fading in/out at the edges, then
-                          // pausing before the next pass.
                           Positioned.fill(
                             child: AnimatedBuilder(
                               animation: _droneController,
@@ -239,17 +210,14 @@ class _DashboardScreenState extends State<DashboardScreen>
                               },
                             ),
                           ),
-
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              // Status strip: hamburger menu + pulsing ONLINE tag + logout
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
                                   Row(
                                     children: [
-                                      // Hamburger icon opens the left drawer.
                                       Builder(
                                         builder: (context) => InkWell(
                                           borderRadius: BorderRadius.circular(8),
@@ -306,10 +274,6 @@ class _DashboardScreenState extends State<DashboardScreen>
                                   Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      // Pending-approval bell — admin only. Shakes
-                                      // right-to-left while there's at least one
-                                      // pending access request, sits still once
-                                      // the queue is empty.
                                       AdminOnly(
                                         child: Padding(
                                           padding: const EdgeInsets.only(right: 6),
@@ -327,8 +291,6 @@ class _DashboardScreenState extends State<DashboardScreen>
                                   ),
                                 ],
                               ),
-
-                              // Center branding: radar-swept crest
                               Center(
                                 child: Column(
                                   children: [
@@ -412,9 +374,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                                   ],
                                 ),
                               ),
-
                               const SizedBox(height: 18),
-
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
@@ -475,7 +435,6 @@ class _DashboardScreenState extends State<DashboardScreen>
                           _sectionEyebrow('CONTROL MODULES', AppColors.teal),
                           const SizedBox(height: 14),
 
-                          // ---- Control Modules grid (3 columns, matches reference screenshot) ----
                           GridView.count(
                             crossAxisCount: 3,
                             shrinkWrap: true,
@@ -532,7 +491,6 @@ class _DashboardScreenState extends State<DashboardScreen>
                                 onTap: () => Navigator.push(context,
                                     MaterialPageRoute(builder: (_) => const BatchListScreen())),
                               ),
-                              // ---- RPTO Vault tile ----
                               _TapColorCard(
                                 title: 'RPTO Vault',
                                 imagePath: 'lib/assets/images/rpto_vault.png',
@@ -541,7 +499,6 @@ class _DashboardScreenState extends State<DashboardScreen>
                                 onTap: () => Navigator.push(context,
                                     MaterialPageRoute(builder: (_) => const VaultHomeScreen())),
                               ),
-                              // ---- Analytics Dashboard tile ----
                               _TapColorCard(
                                 title: 'Analytics dashboard',
                                 imagePath: 'lib/assets/images/analytics_dashboard.png',
@@ -550,12 +507,16 @@ class _DashboardScreenState extends State<DashboardScreen>
                                 onTap: () => Navigator.push(context,
                                     MaterialPageRoute(builder: (_) => const AnalyticsOverviewScreen())),
                               ),
+                              // ---- NEW: Aerial & FPV module ----
+                              _TapColorCard(
+                                title: 'Aerial & FPV',
+                                imagePath: 'lib/assets/images/aerial_fpv.png',
+                                color: AppColors.teal,
+                                controller: _pulseController,
+                                onTap: () => Navigator.push(context,
+                                    MaterialPageRoute(builder: (_) => const AerialFpvHomeScreen())),
+                              ),
                               // ---- Admin facility tile — admin only ----
-                              // Consolidates the old separate Instructor
-                              // Access / Access Requests / Live Activity
-                              // tiles into one "Access Hub" entry point.
-                              // Those three screens are unchanged — Access
-                              // Hub just lists and routes to them.
                               AdminOnly(
                                 child: _TapColorCard(
                                   title: 'Access Hub',
@@ -616,133 +577,248 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 }
 
-// ---------------- Left drawer: full module list + logout ----------------
+// ---------------- Left drawer: light-blue theme + flying drones ----------------
 
-class _HudDrawer extends StatelessWidget {
+class _HudDrawer extends StatefulWidget {
   final String? userName;
 
   const _HudDrawer({required this.userName});
 
   @override
+  State<_HudDrawer> createState() => _HudDrawerState();
+}
+
+class _HudDrawerState extends State<_HudDrawer>
+    with SingleTickerProviderStateMixin {
+  // Light-blue palette
+  static const Color _bg = Color(0xFFF4F9FF);
+  static const Color _headerTop = Color(0xFFE3F2FD);
+  static const Color _headerBottom = Color(0xFF90CAF9);
+  static const Color _ink = Color(0xFF0A2540);
+  static const Color _inkMuted = Color(0xFF4A6382);
+  static const Color _divider = Color(0xFFD0E4F7);
+  // Darker blue so drones stay visible on the light header
+  static const Color _droneBlue = Color(0xFF1976D2);
+
+  late final AnimationController _droneController = AnimationController(
+    vsync: this,
+    duration: const Duration(seconds: 7),
+  )..repeat();
+
+  @override
+  void dispose() {
+    _droneController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final modules = <({IconData icon, String title, Color color, Widget Function() builder})>[
-      (icon: Icons.apartment,title: 'Company Details', color: AppColors.blue,
-      builder: () => const CompanyListScreen()),
-      (icon: Icons.badge, title: 'Instructors', color: AppColors.teal,
-      builder: () => const InstructorListScreen()),
-      (icon: Icons.flight, title: 'Drones', color: AppColors.amber,
-      builder: () => const DroneListScreen()),
-      (icon: Icons.sports_esports, title: 'Simulators', color: AppColors.purple,
-      builder: () => const SimListScreen()),
-      (icon: Icons.school, title: 'Students', color: AppColors.green,
-      builder: () => const StudentListScreen()),
-      (icon: Icons.groups, title: 'Batches', color: AppColors.coral,
-      builder: () => const BatchListScreen()),
-      (icon: Icons.folder_special, title: 'RPTO Vault', color: AppColors.blue,
-      builder: () => const VaultHomeScreen()),
-      (icon: Icons.analytics, title: 'Analytics', color: AppColors.purple,
-      builder: () => const AnalyticsOverviewScreen()),
-      (icon: Icons.person, title: 'Profile', color: AppColors.blue,
-      builder: () => const ProfileScreen()),
+    final modules = <({
+    IconData icon,
+    String title,
+    Color color,
+    bool adminOnly,
+    void Function(BuildContext) open,
+    })>[
+      (icon: Icons.apartment, title: 'Company Details', color: AppColors.blue, adminOnly: false,
+      open: (c) => Navigator.push(c, MaterialPageRoute(builder: (_) => const CompanyListScreen()))),
+      (icon: Icons.badge, title: 'Instructors', color: AppColors.teal, adminOnly: false,
+      open: (c) => Navigator.push(c, MaterialPageRoute(builder: (_) => const InstructorListScreen()))),
+      (icon: Icons.flight, title: 'Drones', color: AppColors.amber, adminOnly: false,
+      open: (c) => Navigator.push(c, MaterialPageRoute(builder: (_) => const DroneListScreen()))),
+      (icon: Icons.sports_esports, title: 'Simulators', color: AppColors.purple, adminOnly: false,
+      open: (c) => Navigator.push(c, MaterialPageRoute(builder: (_) => const SimListScreen()))),
+      (icon: Icons.school, title: 'Students', color: AppColors.green, adminOnly: false,
+      open: (c) => Navigator.push(c, MaterialPageRoute(builder: (_) => const StudentListScreen()))),
+      (icon: Icons.groups, title: 'Batches', color: AppColors.coral, adminOnly: false,
+      open: (c) => Navigator.push(c, MaterialPageRoute(builder: (_) => const BatchListScreen()))),
+      (icon: Icons.folder_special, title: 'RPTO Vault', color: AppColors.blue, adminOnly: false,
+      open: (c) => Navigator.push(c, MaterialPageRoute(builder: (_) => const VaultHomeScreen()))),
+      (icon: Icons.analytics, title: 'Analytics', color: AppColors.purple, adminOnly: false,
+      open: (c) => Navigator.push(c, MaterialPageRoute(builder: (_) => const AnalyticsOverviewScreen()))),
+      // ---- NEW: Aerial & FPV ----
+      (icon: Icons.flight_takeoff, title: 'Aerial & FPV', color: AppColors.teal, adminOnly: false,
+      open: (c) => Navigator.push(c, MaterialPageRoute(builder: (_) => const AerialFpvHomeScreen()))),
+      // ---- Admin-only extras ----
+      (icon: Icons.admin_panel_settings, title: 'Access Hub', color: AppColors.teal, adminOnly: true,
+      open: (c) => Navigator.pushNamed(c, AppRoutes.accessHub)),
+      (icon: Icons.notifications_active, title: 'Access Requests', color: AppColors.coral, adminOnly: true,
+      open: (c) => Navigator.push(c, MaterialPageRoute(builder: (_) => const AdminNotificationsScreen()))),
+      (icon: Icons.manage_accounts, title: 'Employee Access', color: AppColors.amber, adminOnly: true,
+      open: (c) => Navigator.push(c, MaterialPageRoute(builder: (_) => const EmployeeAccessScreen()))),
+      (icon: Icons.person, title: 'Profile', color: AppColors.blue, adminOnly: false,
+      open: (c) => Navigator.push(c, MaterialPageRoute(builder: (_) => const ProfileScreen()))),
     ];
 
     return Drawer(
-      backgroundColor: AppColors.surface,
-      child: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 18),
-              child: Row(
+      backgroundColor: _bg,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ---------- Header with flying drones ----------
+          Container(
+            width: double.infinity,
+            height: 170,
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [_headerTop, _headerBottom],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+            ),
+            child: ClipRect(
+              child: Stack(
                 children: [
-                  Container(
-                    width: 56,
-                    height: 56,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Colors.white,
-                      border: Border.all(color: AppColors.blue.withValues(alpha: 0.5), width: 1.5),
-                    ),
-                    child: ClipOval(
-                      child: Transform.scale(
-                        scale: 1.25,
-                        child: Image.asset(
-                          'lib/assets/images/logo.webp',
-                          fit: BoxFit.cover,
-                          filterQuality: FilterQuality.high,
-                          isAntiAlias: true,
-                          errorBuilder: (context, error, stackTrace) =>
-                          const Icon(Icons.flight_takeoff, color: AppColors.blue, size: 26),
+                  Positioned.fill(
+                    child: AnimatedBuilder(
+                      animation: _droneController,
+                      builder: (context, _) => CustomPaint(
+                        painter: _FlyingDronePainter(
+                          progress: _droneController.value,
+                          color: _droneBlue,
+                          bodyColor: _ink,
                         ),
                       ),
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'CHENNAI DRONE ACADEMY',
-                          maxLines: 2,
-                          style: TextStyle(
-                            color: AppColors.textPrimary,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 0.3,
-                          ),
+                  SafeArea(
+                    bottom: false,
+                    child: Align(
+                      alignment: Alignment.bottomLeft,
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 56,
+                              height: 56,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: Colors.white,
+                                border: Border.all(
+                                    color: AppColors.blue.withValues(alpha: 0.5),
+                                    width: 1.5),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.12),
+                                    blurRadius: 10,
+                                  ),
+                                ],
+                              ),
+                              child: ClipOval(
+                                child: Transform.scale(
+                                  scale: 1.25,
+                                  child: Image.asset(
+                                    'lib/assets/images/logo.webp',
+                                    fit: BoxFit.cover,
+                                    filterQuality: FilterQuality.high,
+                                    isAntiAlias: true,
+                                    errorBuilder: (context, error, stackTrace) =>
+                                    const Icon(Icons.flight_takeoff,
+                                        color: AppColors.blue, size: 26),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'CHENNAI DRONE ACADEMY',
+                                    maxLines: 2,
+                                    style: TextStyle(
+                                      color: _ink,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: 0.3,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    widget.userName != null
+                                        ? 'Signed in as ${widget.userName}'
+                                        : 'Not signed in',
+                                    style: const TextStyle(
+                                        color: _inkMuted, fontSize: 12),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          userName != null ? 'Signed in as $userName' : 'Not signed in',
-                          style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
-                        ),
-                      ],
+                      ),
                     ),
                   ),
                 ],
               ),
             ),
-            const Divider(color: AppColors.border, height: 1),
+          ),
 
-            Expanded(
-              child: ListView.builder(
-                padding: const EdgeInsets.symmetric(vertical: 6),
-                itemCount: modules.length,
-                itemBuilder: (context, i) {
-                  final m = modules[i];
-                  return ListTile(
-                    leading: Icon(m.icon, color: m.color, size: 22),
-                    title: Text(
-                      m.title,
-                      style: const TextStyle(
-                        color: AppColors.textPrimary,
-                        fontSize: 14.5,
-                        fontWeight: FontWeight.w600,
-                      ),
+          // ---------- Module list ----------
+          Expanded(
+            child: ListView.builder(
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
+              itemCount: modules.length,
+              itemBuilder: (context, i) {
+                final m = modules[i];
+                final tile = ListTile(
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                  leading: Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: m.color.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(10),
                     ),
-                    onTap: () {
-                      Navigator.pop(context);
-                      Navigator.push(context, MaterialPageRoute(builder: (_) => m.builder()));
-                    },
-                  );
-                },
-              ),
+                    child: Icon(m.icon, color: m.color, size: 20),
+                  ),
+                  title: Text(
+                    m.title,
+                    style: const TextStyle(
+                      color: _ink,
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  onTap: () {
+                    Navigator.pop(context);
+                    m.open(context);
+                  },
+                );
+                return m.adminOnly ? AdminOnly(child: tile) : tile;
+              },
             ),
+          ),
 
-            const Divider(color: AppColors.border, height: 1),
+          const Divider(color: _divider, height: 1),
 
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 6),
+          SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 10),
               child: ListTile(
-                leading: const Icon(Icons.logout, color: AppColors.coral, size: 22),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
+                leading: Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: AppColors.coral.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.logout,
+                      color: AppColors.coral, size: 20),
+                ),
                 title: const Text(
                   'Logout',
                   style: TextStyle(
                     color: AppColors.coral,
                     fontSize: 14.5,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
                 onTap: () {
@@ -751,8 +827,8 @@ class _HudDrawer extends StatelessWidget {
                 },
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -804,11 +880,6 @@ class _ShimmerText extends StatelessWidget {
 
 // ---------------- Pending-approval bell (admin only) ----------------
 
-/// Notification bell that shows the count of pending access requests
-/// (via AccessControlService.watchUnreadCount()) and shakes
-/// right-to-left continuously while there's at least one pending
-/// request, so the admin can't miss it. Once every request has been
-/// approved/rejected, the shake stops and it sits still.
 class _NotificationBell extends StatefulWidget {
   final VoidCallback onTap;
   const _NotificationBell({required this.onTap});
@@ -844,9 +915,6 @@ class _NotificationBellState extends State<_NotificationBell>
           child: AnimatedBuilder(
             animation: _shakeController,
             builder: (context, child) {
-              // Only oscillate while a request is pending — sin wave
-              // gives a smooth right<->left swing; amplitude is 0 (i.e.
-              // no movement at all) the moment the queue empties out.
               final dx = hasPending
                   ? math.sin(_shakeController.value * 2 * math.pi) * 3.2
                   : 0.0;
@@ -900,7 +968,7 @@ class _NotificationBellState extends State<_NotificationBell>
   }
 }
 
-// ---------------- Radar sweep painter (crest signature element) ----------------
+// ---------------- Radar sweep painter ----------------
 
 class _RadarSweepPainter extends CustomPainter {
   final double progress;
@@ -943,13 +1011,18 @@ class _RadarSweepPainter extends CustomPainter {
   bool shouldRepaint(covariant _RadarSweepPainter oldDelegate) => oldDelegate.progress != progress;
 }
 
-// ---------------- Flying drone painter (header signature animation) ----------------
+// ---------------- Flying drone painter (shared by header + drawer) ----------------
 
 class _FlyingDronePainter extends CustomPainter {
   final double progress;
   final Color color;
+  final Color bodyColor; // white on dark header, dark ink on light drawer
 
-  _FlyingDronePainter({required this.progress, required this.color});
+  _FlyingDronePainter({
+    required this.progress,
+    required this.color,
+    this.bodyColor = Colors.white,
+  });
 
   static const List<_DroneConfig> _drones = [
     _DroneConfig(phaseOffset: 0.00, laneY: 0.18, scale: 2.00, flightSpan: 0.55),
@@ -1006,7 +1079,7 @@ class _FlyingDronePainter extends CustomPainter {
     final bodyGlowPaint = Paint()
       ..color = color.withValues(alpha: 0.5 * opacity)
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
-    final bodyPaint = Paint()..color = Colors.white.withValues(alpha: 0.95 * opacity);
+    final bodyPaint = Paint()..color = bodyColor.withValues(alpha: 0.95 * opacity);
 
     canvas.save();
     canvas.translate(center.dx, center.dy);
@@ -1041,7 +1114,9 @@ class _FlyingDronePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _FlyingDronePainter oldDelegate) =>
-      oldDelegate.progress != progress || oldDelegate.color != color;
+      oldDelegate.progress != progress ||
+          oldDelegate.color != color ||
+          oldDelegate.bodyColor != bodyColor;
 }
 
 class _DroneConfig {
@@ -1114,7 +1189,7 @@ class _HudFrame extends StatelessWidget {
   }
 }
 
-// ---------------- Module card: HUD frame + full-bleed image + tap feedback ----------------
+// ---------------- Module card ----------------
 
 class _TapColorCard extends StatefulWidget {
   final String title;
@@ -1220,10 +1295,6 @@ class _BrandFooter extends StatelessWidget {
     return Center(
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
-        // Wrap (not Row) so on narrow phone screens the second line
-        // ("SKYLYNK UNMANNED SYSTEMS PVT.LTD.") drops to its own line
-        // below "Chennai Drone Academy" instead of being clipped off
-        // the edge of the screen.
         child: Wrap(
           alignment: WrapAlignment.center,
           crossAxisAlignment: WrapCrossAlignment.center,

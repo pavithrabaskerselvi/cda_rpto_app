@@ -20,6 +20,19 @@ class _BatchListScreenState extends State<BatchListScreen> {
   String _selectedFilter = 'All';
   final List<String> _filters = ['All', 'Active', 'Upcoming', 'Completed', 'Archived'];
 
+  // Batch-size filter (second chip row). null = no size filter.
+  // Batches that have no `batchSize` field in Firestore count as Small,
+  // so every existing batch shows under "Small Batch" and
+  // "Medium Batch" stays empty until a batch is saved with
+  // batchSize: 'Medium'.
+  String? _selectedSize;
+  final List<String> _sizes = ['Small Batch', 'Medium Batch'];
+
+  String _batchSizeOf(Map<String, dynamic> data) {
+    final raw = (data['batchSize'] ?? '').toString().toLowerCase();
+    return raw.startsWith('medium') ? 'Medium Batch' : 'Small Batch';
+  }
+
   // ---- Theme-aware colors: flip between dark/light based on current
   // Theme brightness instead of hardcoded light-only constants. ----
   bool _isDark(BuildContext c) => Theme.of(c).brightness == Brightness.dark;
@@ -201,6 +214,49 @@ class _BatchListScreenState extends State<BatchListScreen> {
               ),
             ),
           ),
+          SliverToBoxAdapter(
+            child: SizedBox(
+              height: 44,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                itemCount: _sizes.length,
+                itemBuilder: (context, index) {
+                  final size = _sizes[index];
+                  final isSelected = _selectedSize == size;
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: ChoiceChip(
+                      avatar: Icon(
+                        size == 'Small Batch'
+                            ? Icons.groups_2_outlined
+                            : Icons.groups_outlined,
+                        size: 16,
+                        color: isSelected ? _kNavy(context) : _kTeal(context),
+                      ),
+                      label: Text(size),
+                      selected: isSelected,
+                      showCheckmark: false,
+                      // tap the selected chip again to clear the size filter
+                      onSelected: (_) => setState(
+                              () => _selectedSize = isSelected ? null : size),
+                      selectedColor: _kTeal(context),
+                      backgroundColor: _kSurface(context),
+                      labelStyle: TextStyle(
+                        color: isSelected ? _kNavy(context) : _kTextSecondary(context),
+                        fontWeight: FontWeight.w600,
+                        fontSize: 12.5,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                        side: BorderSide(color: isSelected ? _kTeal(context) : _kBorder(context)),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
           StreamBuilder<QuerySnapshot>(
             stream: FirebaseFirestore.instance
                 .collection('batches')
@@ -242,7 +298,9 @@ class _BatchListScreenState extends State<BatchListScreen> {
                 final batchName = (data['batchName'] ?? '').toString().toLowerCase();
                 final status = (data['status'] ?? 'Upcoming').toString();
                 final matchesSearch = _searchQuery.isEmpty || batchName.contains(_searchQuery);
-                return matchesSearch && _matchesFilter(status);
+                final matchesSize =
+                    _selectedSize == null || _batchSizeOf(data) == _selectedSize;
+                return matchesSearch && matchesSize && _matchesFilter(status);
               }).toList();
 
               if (docs.isEmpty) {
@@ -255,7 +313,13 @@ class _BatchListScreenState extends State<BatchListScreen> {
                             color: _kTextSecondary(context), size: 52),
                         const SizedBox(height: 14),
                         Text(
-                          allDocs.isEmpty ? 'No batches found' : 'No matching batches',
+                          allDocs.isEmpty
+                              ? 'No batches found'
+                              : (_selectedSize == 'Medium Batch' &&
+                              _searchQuery.isEmpty &&
+                              _selectedFilter == 'All')
+                              ? 'No Medium batches yet'
+                              : 'No matching batches',
                           style: TextStyle(
                             color: _kTextPrimary(context),
                             fontSize: 18,

@@ -1,3 +1,4 @@
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import '../../config/constants.dart';
@@ -38,6 +39,9 @@ class _AddBatchScreenState extends State<AddBatchScreen> {
 
   final List<String> _statusOptions = ['Upcoming', 'Ongoing', 'Completed'];
   final List<String> _categoryOptions = kBatchCategories;
+  // Batch size: 'Small' (default for every batch) or 'Medium'.
+  String _selectedSize = 'Small';
+  final List<String> _sizeOptions = ['Small', 'Medium'];
 
   @override
   void initState() {
@@ -209,6 +213,7 @@ class _AddBatchScreenState extends State<AddBatchScreen> {
         'studentCount': int.tryParse(_studentCountController.text.trim()) ?? 0,
         'status': _selectedStatus,
         'category': _selectedCategory,
+        'batchSize': _selectedSize,
         'location': _locationController.text.trim(),
         'scheduleDays': _scheduleDaysController.text.trim(),
         'startDate': Timestamp.fromDate(_startDate!),
@@ -324,6 +329,18 @@ class _AddBatchScreenState extends State<AddBatchScreen> {
               onChanged: (value) {
                 setState(() => _selectedCategory = value ?? kDefaultBatchCategory);
               },
+            ),
+            const SizedBox(height: 16),
+
+            DropdownButtonFormField<String>(
+              initialValue: _selectedSize,
+              dropdownColor: _kSurface(context),
+              style: TextStyle(color: _kTextPrimary(context)),
+              decoration: _inputDecoration(context, 'Batch Size', icon: Icons.groups_outlined),
+              items: _sizeOptions
+                  .map((s) => DropdownMenuItem(value: s, child: Text('$s Batch')))
+                  .toList(),
+              onChanged: (v) => setState(() => _selectedSize = v ?? 'Small'),
             ),
             const SizedBox(height: 16),
 

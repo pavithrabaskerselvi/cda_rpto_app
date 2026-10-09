@@ -12,8 +12,15 @@ class BatchAnalyticsScreen extends StatefulWidget {
 }
 
 class _BatchAnalyticsScreenState extends State<BatchAnalyticsScreen> {
-  List<BatchStudentCount> _rows = [];
+  List<BatchStudentCount> _allRows = [];
   bool _loading = true;
+
+  // 'All', 'Small' or 'Medium'. Batches with no batchSize count as Small.
+  String _sizeFilter = 'All';
+
+  List<BatchStudentCount> get _rows => _sizeFilter == 'All'
+      ? _allRows
+      : _allRows.where((r) => r.batchSize == _sizeFilter).toList();
 
   @override
   void initState() {
@@ -25,7 +32,7 @@ class _BatchAnalyticsScreenState extends State<BatchAnalyticsScreen> {
     final rows = await AnalyticsService.fetchStudentsPerBatch();
     if (!mounted) return;
     setState(() {
-      _rows = rows;
+      _allRows = rows;
       _loading = false;
     });
   }
@@ -81,8 +88,60 @@ class _BatchAnalyticsScreenState extends State<BatchAnalyticsScreen> {
               ),
             ],
           ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: KpiCard(
+                  label: 'Small Batches',
+                  value: '${_allRows.where((r) => r.batchSize == 'Small').length}',
+                  icon: Icons.groups_2_outlined,
+                  accentColor: teal,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: KpiCard(
+                  label: 'Medium Batches',
+                  value: '${_allRows.where((r) => r.batchSize == 'Medium').length}',
+                  icon: Icons.groups_outlined,
+                  accentColor: const Color(0xFF8B5CF6),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Wrap(
+            spacing: 8,
+            children: [
+              for (final f in const ['All', 'Small', 'Medium'])
+                ChoiceChip(
+                  label: Text(f == 'All' ? 'All' : '$f Batch'),
+                  selected: _sizeFilter == f,
+                  showCheckmark: false,
+                  onSelected: (_) => setState(() => _sizeFilter = f),
+                  selectedColor: teal,
+                  backgroundColor: _surface(context),
+                  labelStyle: TextStyle(
+                    color: _sizeFilter == f ? Colors.white : _textSecondary(context),
+                    fontWeight: FontWeight.w600,
+                    fontSize: 12.5,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                    side: BorderSide(
+                        color: _sizeFilter == f
+                            ? teal
+                            : _textSecondary(context).withValues(alpha: 0.25)),
+                  ),
+                ),
+            ],
+          ),
           const SizedBox(height: 20),
-          Text('Students per Batch (ranked)',
+          Text(
+              _sizeFilter == 'All'
+                  ? 'Students per Batch (ranked)'
+                  : 'Students per Batch (ranked) - $_sizeFilter Batch',
               style: TextStyle(
                   color: _textPrimary(context), fontSize: 15, fontWeight: FontWeight.w700)),
           const SizedBox(height: 10),
@@ -90,7 +149,9 @@ class _BatchAnalyticsScreenState extends State<BatchAnalyticsScreen> {
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 24),
               child: Center(
-                  child: Text('No batches yet', style: TextStyle(color: _textSecondary(context)))),
+                  child: Text(
+                      _sizeFilter == 'Medium' ? 'No Medium batches yet' : 'No batches yet',
+                      style: TextStyle(color: _textSecondary(context)))),
             )
           else
             Container(

@@ -48,6 +48,9 @@ class _BulkBatchSetupScreenState extends State<BulkBatchSetupScreen> {
 
   final List<String> _statusOptions = ['Upcoming', 'Ongoing', 'Completed'];
   final List<String> _categoryOptions = kBatchCategories;
+  // Batch size: 'Small' (default for every batch) or 'Medium'.
+  String _selectedSize = 'Small';
+  final List<String> _sizeOptions = ['Small', 'Medium'];
 
   bool _isDark(BuildContext c) => Theme.of(c).brightness == Brightness.dark;
   Color _kNavy(BuildContext c) =>
@@ -231,6 +234,7 @@ class _BulkBatchSetupScreenState extends State<BulkBatchSetupScreen> {
             'studentCount': names.length,
             'status': _selectedStatus,
             'category': _selectedCategory,
+            'batchSize': _selectedSize,
             'location': _locationController.text.trim(),
             'scheduleDays': _scheduleDaysController.text.trim(),
             'startDate': Timestamp.fromDate(_startDate!),
@@ -387,6 +391,18 @@ class _BulkBatchSetupScreenState extends State<BulkBatchSetupScreen> {
                   .map((c) => DropdownMenuItem(value: c, child: Text(c)))
                   .toList(),
               onChanged: (v) => setState(() => _selectedCategory = v ?? kDefaultBatchCategory),
+            ),
+            const SizedBox(height: 16),
+
+            DropdownButtonFormField<String>(
+              initialValue: _selectedSize,
+              dropdownColor: _kSurface(context),
+              style: TextStyle(color: _kTextPrimary(context)),
+              decoration: _inputDecoration(context, 'Batch Size', icon: Icons.groups_outlined),
+              items: _sizeOptions
+                  .map((s) => DropdownMenuItem(value: s, child: Text('$s Batch')))
+                  .toList(),
+              onChanged: (v) => setState(() => _selectedSize = v ?? 'Small'),
             ),
             const SizedBox(height: 16),
 

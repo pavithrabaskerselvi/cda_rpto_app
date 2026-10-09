@@ -37,9 +37,7 @@ class _BatchDetailScreenState extends State<BatchDetailScreen>
   late TextEditingController _scheduleDaysController;
   late TextEditingController _sessionDurationController;
   late TextEditingController _maxCapacityController;
-  late TextEditingController _targetFlyingHoursController;
   late TextEditingController _targetSimulatorHoursController;
-  late TextEditingController _feeAmountController;
 
   String? _selectedDrone;
   String _selectedStatus = 'Upcoming';
@@ -50,6 +48,9 @@ class _BatchDetailScreenState extends State<BatchDetailScreen>
   TimeOfDay? _endTime;
 
   final List<String> _categoryOptions = kBatchCategories;
+  // Batch size: 'Small' (default for every batch) or 'Medium'.
+  String _selectedSize = 'Small';
+  final List<String> _sizeOptions = ['Small', 'Medium'];
 
   bool _initialized = false;
 
@@ -90,9 +91,7 @@ class _BatchDetailScreenState extends State<BatchDetailScreen>
     _scheduleDaysController = TextEditingController();
     _sessionDurationController = TextEditingController();
     _maxCapacityController = TextEditingController();
-    _targetFlyingHoursController = TextEditingController();
     _targetSimulatorHoursController = TextEditingController();
-    _feeAmountController = TextEditingController();
   }
 
   @override
@@ -104,9 +103,7 @@ class _BatchDetailScreenState extends State<BatchDetailScreen>
     _scheduleDaysController.dispose();
     _sessionDurationController.dispose();
     _maxCapacityController.dispose();
-    _targetFlyingHoursController.dispose();
     _targetSimulatorHoursController.dispose();
-    _feeAmountController.dispose();
     super.dispose();
   }
 
@@ -123,13 +120,15 @@ class _BatchDetailScreenState extends State<BatchDetailScreen>
         ? (data['endDate'] as Timestamp).toDate()
         : null;
     _selectedCategory = normalizeBatchCategory(data['category'] as String?);
+    // batches saved before batchSize existed count as Small
+    _selectedSize = (data['batchSize'] ?? '').toString().toLowerCase().startsWith('medium')
+        ? 'Medium'
+        : 'Small';
     _locationController.text = data['location'] ?? '';
     _scheduleDaysController.text = data['scheduleDays'] ?? '';
     _sessionDurationController.text = data['sessionDuration'] ?? '';
     _maxCapacityController.text = (data['maxCapacity'] ?? '').toString();
-    _targetFlyingHoursController.text = (data['targetFlyingHours'] ?? '').toString();
     _targetSimulatorHoursController.text = (data['targetSimulatorHours'] ?? '').toString();
-    _feeAmountController.text = (data['feeAmount'] ?? '').toString();
     _startTime = _parseTime(data['startTime']);
     _endTime = _parseTime(data['endTime']);
     _initialized = true;
@@ -291,6 +290,7 @@ class _BatchDetailScreenState extends State<BatchDetailScreen>
         'studentCount': int.tryParse(_studentCountController.text.trim()) ?? 0,
         'status': _selectedStatus,
         'category': _selectedCategory,
+        'batchSize': _selectedSize,
         'location': _locationController.text.trim(),
         'scheduleDays': _scheduleDaysController.text.trim(),
         'startDate': Timestamp.fromDate(_startDate!),
@@ -299,9 +299,7 @@ class _BatchDetailScreenState extends State<BatchDetailScreen>
         'endTime': _timeToStorageString(_endTime),
         'sessionDuration': _sessionDurationController.text.trim(),
         'maxCapacity': int.tryParse(_maxCapacityController.text.trim()) ?? 0,
-        'targetFlyingHours': num.tryParse(_targetFlyingHoursController.text.trim()) ?? 0,
         'targetSimulatorHours': num.tryParse(_targetSimulatorHoursController.text.trim()) ?? 0,
-        'feeAmount': num.tryParse(_feeAmountController.text.trim()) ?? 0,
         'updatedAt': FieldValue.serverTimestamp(),
       });
 
@@ -660,6 +658,25 @@ class _BatchDetailScreenState extends State<BatchDetailScreen>
               ),
               const SizedBox(height: 16),
 
+              _isEditing
+                  ? DropdownButtonFormField<String>(
+                initialValue: _selectedSize,
+                dropdownColor: _kSurface(context),
+                style: TextStyle(color: _kTextPrimary(context)),
+                decoration: _inputDecoration(context, 'Batch Size', icon: Icons.groups_outlined),
+                items: _sizeOptions
+                    .map((s) => DropdownMenuItem(value: s, child: Text('$s Batch')))
+                    .toList(),
+                onChanged: (v) => setState(() => _selectedSize = v ?? 'Small'),
+              )
+                  : TextFormField(
+                enabled: false,
+                style: TextStyle(color: _kTextPrimary(context)),
+                controller: TextEditingController(text: '$_selectedSize Batch'),
+                decoration: _inputDecoration(context, 'Batch Size', icon: Icons.groups_outlined),
+              ),
+              const SizedBox(height: 16),
+
 
               _isEditing
                   ? StreamBuilder<QuerySnapshot>(
@@ -682,12 +699,11 @@ class _BatchDetailScreenState extends State<BatchDetailScreen>
                     initialValue: _selectedDrone,
                     dropdownColor: _kSurface(context),
                     style: TextStyle(color: _kTextPrimary(context)),
-                    decoration: _inputDecoration(context, 'Drone', icon: Icons.flight_outlined),
+                    decoration: _inputDecoration(context, 'Drone (optional)', icon: Icons.flight_outlined),
                     items: names
                         .map((n) => DropdownMenuItem(value: n, child: Text(n)))
                         .toList(),
                     onChanged: (v) => setState(() => _selectedDrone = v),
-                    validator: (v) => v == null ? 'Please select a drone' : null,
                   );
                 },
               )
@@ -695,7 +711,7 @@ class _BatchDetailScreenState extends State<BatchDetailScreen>
                 enabled: false,
                 style: TextStyle(color: _kTextPrimary(context)),
                 controller: TextEditingController(text: _selectedDrone ?? '-'),
-                decoration: _inputDecoration(context, 'Drone', icon: Icons.flight_outlined),
+                decoration: _inputDecoration(context, 'Drone (optional)', icon: Icons.flight_outlined),
               ),
               const SizedBox(height: 16),
 
@@ -835,29 +851,11 @@ class _BatchDetailScreenState extends State<BatchDetailScreen>
               const SizedBox(height: 16),
 
               TextFormField(
-                controller: _targetFlyingHoursController,
-                enabled: _isEditing,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                style: TextStyle(color: _kTextPrimary(context)),
-                decoration: _inputDecoration(context, 'Target Flying Hours', icon: Icons.flight_takeoff_outlined),
-              ),
-              const SizedBox(height: 16),
-
-              TextFormField(
                 controller: _targetSimulatorHoursController,
                 enabled: _isEditing,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 style: TextStyle(color: _kTextPrimary(context)),
-                decoration: _inputDecoration(context, 'Target Simulator Hours', icon: Icons.sports_esports_outlined),
-              ),
-              const SizedBox(height: 16),
-
-              TextFormField(
-                controller: _feeAmountController,
-                enabled: _isEditing,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                style: TextStyle(color: _kTextPrimary(context)),
-                decoration: _inputDecoration(context, 'Fee Amount (INR)', icon: Icons.currency_rupee_outlined),
+                decoration: _inputDecoration(context, 'Target Simulator Hours (optional)', icon: Icons.sports_esports_outlined),
               ),
               const SizedBox(height: 32),
 

@@ -84,6 +84,7 @@ flutter:
     - lib/assets/images/pending_approval_hero.png
 
     - lib/assets/images/icon.png
+    - lib/assets/images/aerial_fpv.png
 
 flutter_launcher_icons:
   android: true

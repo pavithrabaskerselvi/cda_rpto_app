@@ -38,6 +38,11 @@ class _StudentAddScreenState extends State<StudentAddScreen> {
 
   final List<String> _statuses = ['Active', 'Completed', 'Dropped'];
 
+  // When status is Dropped, only Roll No and Full Name are mandatory;
+  // every other detail becomes optional.
+  bool get _dropped => _status == 'Dropped';
+  String _lbl(String base) => _dropped ? '$base (optional)' : '$base *';
+
   @override
   void initState() {
     super.initState();
@@ -110,17 +115,17 @@ class _StudentAddScreenState extends State<StudentAddScreen> {
   Future<void> _saveStudent() async {
     if (!_formKey.currentState!.validate()) return;
 
-    if (_batchId == null) {
+    if (!_dropped && _batchId == null) {
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text('Select a batch')));
       return;
     }
-    if (_dateOfBirth == null) {
+    if (!_dropped && _dateOfBirth == null) {
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text('Select date of birth')));
       return;
     }
-    if (_instructorName == null) {
+    if (!_dropped && _instructorName == null) {
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text('Select an instructor')));
       return;
@@ -138,7 +143,7 @@ class _StudentAddScreenState extends State<StudentAddScreen> {
         phone: _phoneCtrl.text.trim(),
         aadhaar: _aadhaarCtrl.text.trim(),
         dateOfBirth: _dateOfBirth,
-        batchId: _batchId!,
+        batchId: _batchId ?? '',
         batchName: _batchName ?? '',
         instructorName: _instructorName ?? '',
         companyId: _companyId ?? '',
@@ -218,9 +223,9 @@ class _StudentAddScreenState extends State<StudentAddScreen> {
                 controller: _phoneCtrl,
                 style: TextStyle(color: _textPrimary(context)),
                 keyboardType: TextInputType.phone,
-                decoration: _decoration(context, 'Phone *'),
+                decoration: _decoration(context, _lbl('Phone')),
                 validator: (v) =>
-                v == null || v.trim().isEmpty ? 'Required' : null,
+                !_dropped && (v == null || v.trim().isEmpty) ? 'Required' : null,
               ),
               const SizedBox(height: 14),
               TextFormField(
@@ -228,11 +233,11 @@ class _StudentAddScreenState extends State<StudentAddScreen> {
                 style: TextStyle(color: _textPrimary(context)),
                 keyboardType: TextInputType.number,
                 maxLength: 12,
-                decoration: _decoration(context, 'Aadhaar Number *')
+                decoration: _decoration(context, _lbl('Aadhaar Number'))
                     .copyWith(counterText: ''),
                 validator: (v) {
                   final val = v?.trim() ?? '';
-                  if (val.isEmpty) return 'Required';
+                  if (val.isEmpty) return _dropped ? null : 'Required';
                   if (!RegExp(r'^\d{12}$').hasMatch(val)) {
                     return 'Enter a valid 12-digit Aadhaar number';
                   }
@@ -243,7 +248,7 @@ class _StudentAddScreenState extends State<StudentAddScreen> {
               InkWell(
                 onTap: _pickDob,
                 child: InputDecorator(
-                  decoration: _decoration(context, 'Date of Birth *'),
+                  decoration: _decoration(context, _lbl('Date of Birth')),
                   child: Text(
                     _dateOfBirth != null
                         ? '${_dateOfBirth!.day}/${_dateOfBirth!.month}/${_dateOfBirth!.year}'
@@ -269,7 +274,7 @@ class _StudentAddScreenState extends State<StudentAddScreen> {
                 enabled: false,
                 style: TextStyle(color: _textPrimary(context)),
                 controller: TextEditingController(text: _batchName ?? ''),
-                decoration: _decoration(context, 'Batch *'),
+                decoration: _decoration(context, _lbl('Batch')),
               )
                   : StreamBuilder<QuerySnapshot>(
                 stream: FirebaseFirestore.instance.collection('batches').snapshots(),
@@ -284,7 +289,7 @@ class _StudentAddScreenState extends State<StudentAddScreen> {
                     initialValue: currentValue,
                     dropdownColor: _surface(context),
                     style: TextStyle(color: _textPrimary(context)),
-                    decoration: _decoration(context, 'Batch *'),
+                    decoration: _decoration(context, _lbl('Batch')),
                     items: batches.map((b) {
                       final data = b.data() as Map<String, dynamic>;
                       final name = data['batchName'] ?? data['name'] ?? b.id;
@@ -298,7 +303,7 @@ class _StudentAddScreenState extends State<StudentAddScreen> {
                         _batchName = data['batchName'] ?? data['name'] ?? '';
                       });
                     },
-                    validator: (v) => v == null ? 'Select a batch' : null,
+                    validator: (v) => v == null && !_dropped ? 'Select a batch' : null,
                   );
                 },
               ),
@@ -321,12 +326,12 @@ class _StudentAddScreenState extends State<StudentAddScreen> {
                     initialValue: names.contains(_instructorName) ? _instructorName : null,
                     dropdownColor: _surface(context),
                     style: TextStyle(color: _textPrimary(context)),
-                    decoration: _decoration(context, 'Instructor *'),
+                    decoration: _decoration(context, _lbl('Instructor')),
                     items: names
                         .map((n) => DropdownMenuItem(value: n, child: Text(n)))
                         .toList(),
                     onChanged: (v) => setState(() => _instructorName = v),
-                    validator: (v) => v == null ? 'Select an instructor' : null,
+                    validator: (v) => v == null && !_dropped ? 'Select an instructor' : null,
                   );
                 },
               ),

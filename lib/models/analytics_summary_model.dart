@@ -76,7 +76,9 @@ class BatchStudentCount {
   final String batchId;
   final String batchName;
   final int studentCount;
-  const BatchStudentCount(this.batchId, this.batchName, this.studentCount);
+  final String batchSize; // 'Small' (default) or 'Medium'
+  const BatchStudentCount(this.batchId, this.batchName, this.studentCount,
+      [this.batchSize = 'Small']);
 }
 
 /// Batch count per instructor, used by Instructor Analytics.

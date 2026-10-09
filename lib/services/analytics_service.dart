@@ -155,6 +155,10 @@ class AnalyticsService {
         doc.id,
         data['batchName'] ?? '',
         countByBatch[doc.id] ?? 0,
+        // batches without a batchSize field count as Small
+        (data['batchSize'] ?? '').toString().toLowerCase().startsWith('medium')
+            ? 'Medium'
+            : 'Small',
       );
     }).toList()
       ..sort((a, b) => b.studentCount.compareTo(a.studentCount));
