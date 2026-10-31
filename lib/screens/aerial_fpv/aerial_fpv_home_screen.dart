@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../../config/theme_colors.dart';
 import '../../providers/theme_provider.dart';
 import 'aerial_fpv_student_list_screen.dart';
+import 'aerial_fpv_year_screen.dart';
 
 class AerialFpvHomeScreen extends StatelessWidget {
   const AerialFpvHomeScreen({super.key});
@@ -58,8 +59,8 @@ class AerialFpvHomeScreen extends StatelessWidget {
                             onTap: () => Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (_) => const AerialFpvStudentListScreen(
-                                    category: 'aerial'),
+                                builder: (_) =>
+                                const AerialFpvYearScreen(category: 'aerial'),
                               ),
                             ),
                           ),
@@ -76,8 +77,8 @@ class AerialFpvHomeScreen extends StatelessWidget {
                             onTap: () => Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (_) => const AerialFpvStudentListScreen(
-                                    category: 'fpv'),
+                                builder: (_) =>
+                                const AerialFpvYearScreen(category: 'fpv'),
                               ),
                             ),
                           ),

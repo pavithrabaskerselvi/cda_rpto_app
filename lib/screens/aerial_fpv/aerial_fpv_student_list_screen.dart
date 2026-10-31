@@ -11,12 +11,117 @@ import 'package:provider/provider.dart';
 import '../../config/theme_colors.dart';
 import '../../providers/theme_provider.dart';
 import 'aerial_fpv_student_detail_screen.dart';
+import 'aerial_fpv_bulk_add_screen.dart';
 
 const String kAerialFpvCollection = 'aerial_fpv_students';
 
 /// Cloudinary route in FileUploadRouter handles <= 10 MB, so the same
 /// limit is applied here.
 const int kAerialFpvMaxDocBytes = 10 * 1024 * 1024;
+
+/// Course status choices (also used as the 5 filter buttons on the list).
+const List<String> kAerialFpvStatuses = [
+  'Long Term Pending',
+  'Ongoing',
+  'Completed',
+  'Partially Completed',
+  'Dropped',
+];
+
+Color aerialFpvStatusColor(String status) {
+  switch (status) {
+    case 'Long Term Pending':
+      return const Color(0xFFE67E22);
+    case 'Ongoing':
+      return const Color(0xFF1D6FD8);
+    case 'Completed':
+      return const Color(0xFF16A34A);
+    case 'Partially Completed':
+      return const Color(0xFF0D9488);
+    case 'Dropped':
+      return const Color(0xFFDC2626);
+    default:
+      return const Color(0xFF6B7280);
+  }
+}
+
+/// First year of the Aerial / FPV records. Year cards start here and keep
+/// continuing up to the current year automatically.
+const int kAerialFpvStartYear = 2022;
+
+/// 2022 and continuing: runs up to 4 years past the current year (so it
+/// never stops at the current year), or [extra] if a record is later.
+List<int> aerialFpvYearOptions({int? extra}) {
+  var last = DateTime.now().year + 4;
+  if (extra != null && extra > last) last = extra;
+  return [for (var y = kAerialFpvStartYear; y <= last; y++) y];
+}
+
+/// Firestore Timestamp / DateTime -> dd-MM-yyyy ('' when empty).
+String aerialFpvFmtDate(dynamic v) {
+  DateTime? d;
+  if (v is Timestamp) d = v.toDate();
+  if (v is DateTime) d = v;
+  if (d == null) return '';
+  String two(int n) => n.toString().padLeft(2, '0');
+  return '${two(d.day)}-${two(d.month)}-${d.year}';
+}
+
+/// YES / NO selector. Tap the selected one again to clear it.
+Widget aerialFpvYesNo({
+  required CompanyColors c,
+  required Color accent,
+  required String label,
+  required String value,
+  required ValueChanged<String> onChanged,
+}) {
+  Widget chip(String v) {
+    final on = value == v;
+    return InkWell(
+      borderRadius: BorderRadius.circular(20),
+      onTap: () => onChanged(on ? '' : v),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: on ? accent : accent.withValues(alpha: 0.10),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: accent.withValues(alpha: on ? 1 : 0.35)),
+        ),
+        child: Text(v,
+            style: GoogleFonts.plusJakartaSans(
+                color: on ? Colors.white : accent,
+                fontWeight: FontWeight.w700,
+                fontSize: 12)),
+      ),
+    );
+  }
+
+  return Row(
+    children: [
+      SizedBox(
+        width: 90,
+        child: Text(label,
+            style: GoogleFonts.plusJakartaSans(
+                color: c.textPrimary,
+                fontWeight: FontWeight.w700,
+                fontSize: 12.5)),
+      ),
+      chip('YES'),
+      const SizedBox(width: 8),
+      chip('NO'),
+    ],
+  );
+}
+
+/// Year saved on a student; 0 = old record saved before years existed.
+/// "1. ARUN K" / "01) ARUN K" -> "ARUN K" (the list numbers rows itself).
+String aerialFpvCleanName(String name) {
+  final out = name.trim().replaceFirst(RegExp(r'^\d+\s*[\.\)\-]\s*'), '').trim();
+  return out.isEmpty ? name.trim() : out;
+}
+
+int aerialFpvYearOf(Map<String, dynamic> data) =>
+    data['year'] is int ? data['year'] as int : 0;
 
 Color aerialFpvColor(String category) =>
     category == 'aerial' ? const Color(0xFF1D6FD8) : const Color(0xFF6D28D9);
@@ -70,7 +175,9 @@ Widget aerialFpvThemed(BuildContext context, Widget child) {
 
 class AerialFpvStudentListScreen extends StatefulWidget {
   final String category; // 'aerial' | 'fpv'
-  const AerialFpvStudentListScreen({super.key, required this.category});
+  final int year; // selected year, 0 = records without a year
+  const AerialFpvStudentListScreen(
+      {super.key, required this.category, required this.year});
 
   @override
   State<AerialFpvStudentListScreen> createState() =>
@@ -80,6 +187,7 @@ class AerialFpvStudentListScreen extends StatefulWidget {
 class _AerialFpvStudentListScreenState
     extends State<AerialFpvStudentListScreen> {
   String _query = '';
+  String _status = ''; // '' = All
 
   @override
   Widget build(BuildContext context) {
@@ -87,18 +195,49 @@ class _AerialFpvStudentListScreenState
     final c = CompanyColors.of(isDark);
     final accent = aerialFpvColor(widget.category);
     final label = aerialFpvLabel(widget.category);
+    final yearLabel = widget.year == 0 ? 'No year' : '${widget.year}';
 
     return aerialFpvThemed(
       context,
       Scaffold(
         backgroundColor: c.background,
-        floatingActionButton: FloatingActionButton.extended(
-          backgroundColor: accent,
-          foregroundColor: Colors.white,
-          icon: const Icon(Icons.person_add_alt_1),
-          label: Text('Add Student',
-              style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700)),
-          onPressed: () => showStudentForm(context, category: widget.category),
+        floatingActionButton: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            FloatingActionButton.extended(
+              heroTag: 'bulkAddStudents',
+              backgroundColor: c.surface,
+              foregroundColor: accent,
+              elevation: 2,
+              shape: StadiumBorder(side: BorderSide(color: accent)),
+              icon: const Icon(Icons.playlist_add),
+              label: Text('Bulk Add',
+                  style:
+                  GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700)),
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) =>
+                      AerialFpvBulkAddScreen(
+                          category: widget.category,
+                          year: widget.year == 0 ? null : widget.year),
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            FloatingActionButton.extended(
+              heroTag: 'addStudent',
+              backgroundColor: accent,
+              foregroundColor: Colors.white,
+              icon: const Icon(Icons.person_add_alt_1),
+              label: Text('Add Student',
+                  style:
+                  GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700)),
+              onPressed: () => showStudentForm(context,
+                  category: widget.category,
+                  year: widget.year == 0 ? null : widget.year),
+            ),
+          ],
         ),
         body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
           stream: FirebaseFirestore.instance
@@ -107,6 +246,7 @@ class _AerialFpvStudentListScreenState
               .snapshots(),
           builder: (context, snap) {
             Widget content;
+            Widget filterBar = const SizedBox.shrink();
             if (snap.hasError) {
               content = Padding(
                 padding: const EdgeInsets.all(24),
@@ -121,22 +261,52 @@ class _AerialFpvStudentListScreenState
                 child: Center(child: CircularProgressIndicator()),
               );
             } else {
-              final docs = snap.data!.docs.where((d) {
-                final n = (d.data()['name'] ?? '').toString().toLowerCase();
-                final p = (d.data()['phone'] ?? '').toString().toLowerCase();
-                return _query.isEmpty || n.contains(_query) || p.contains(_query);
+              final all = snap.data!.docs
+                  .where((d) => aerialFpvYearOf(d.data()) == widget.year)
+                  .toList();
+              // counts for the filter buttons (ignores the search box)
+              final counts = <String, int>{
+                for (final st in kAerialFpvStatuses) st: 0,
+              };
+              for (final d in all) {
+                final st = (d.data()['status'] ?? '').toString();
+                if (counts.containsKey(st)) counts[st] = counts[st]! + 1;
+              }
+
+              final docs = all.where((d) {
+                final data = d.data();
+                final n = (data['name'] ?? '').toString().toLowerCase();
+                final p = (data['phone'] ?? '').toString().toLowerCase();
+                final r = (data['regNo'] ?? '').toString().toLowerCase();
+                final matchQuery = _query.isEmpty ||
+                    n.contains(_query) ||
+                    p.contains(_query) ||
+                    r.contains(_query);
+                final matchStatus = _status.isEmpty ||
+                    (data['status'] ?? '').toString() == _status;
+                return matchQuery && matchStatus;
               }).toList()
                 ..sort((a, b) => (a.data()['name'] ?? '')
                     .toString()
                     .toLowerCase()
                     .compareTo((b.data()['name'] ?? '').toString().toLowerCase()));
 
+              filterBar = _StatusFilterBar(
+                c: c,
+                selected: _status,
+                total: all.length,
+                counts: counts,
+                onSelect: (v) => setState(() => _status = v),
+              );
+
               if (docs.isEmpty) {
                 content = Padding(
                   padding: const EdgeInsets.all(40),
                   child: Center(
                     child: Text(
-                      'No $label students yet.\nTap "Add Student".',
+                      _status.isNotEmpty
+                          ? 'No $label students with status "$_status".'
+                          : 'No $label students in $yearLabel yet.\nTap "Add Student".',
                       textAlign: TextAlign.center,
                       style: GoogleFonts.plusJakartaSans(color: c.textSecondary),
                     ),
@@ -145,16 +315,17 @@ class _AerialFpvStudentListScreenState
               } else {
                 content = Column(
                   children: [
-                    for (final d in docs) ...[
+                    for (var i = 0; i < docs.length; i++) ...[
                       _StudentTile(
-                        data: d.data(),
+                        index: i + 1,
+                        data: docs[i].data(),
                         c: c,
                         accent: accent,
                         onTap: () => Navigator.push(
                           context,
                           MaterialPageRoute(
                             builder: (_) => AerialFpvStudentDetailScreen(
-                              docId: d.id,
+                              docId: docs[i].id,
                               category: widget.category,
                             ),
                           ),
@@ -169,7 +340,8 @@ class _AerialFpvStudentListScreenState
 
             return CustomScrollView(
               slivers: [
-                aerialFpvSliverAppBar(c: c, title: '$label Students'),
+                aerialFpvSliverAppBar(
+                    c: c, title: '$label Students - $yearLabel'),
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
@@ -198,6 +370,7 @@ class _AerialFpvStudentListScreenState
                     ),
                   ),
                 ),
+                SliverToBoxAdapter(child: filterBar),
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(12, 0, 12, 100),
@@ -213,13 +386,74 @@ class _AerialFpvStudentListScreenState
   }
 }
 
+/// "All" + the 5 status buttons. Tap a status to show only those students;
+/// tap it again (or "All") to clear the filter.
+class _StatusFilterBar extends StatelessWidget {
+  final CompanyColors c;
+  final String selected;
+  final int total;
+  final Map<String, int> counts;
+  final ValueChanged<String> onSelect;
+
+  const _StatusFilterBar({
+    required this.c,
+    required this.selected,
+    required this.total,
+    required this.counts,
+    required this.onSelect,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    Widget chip(String label, String value, int count, Color color) {
+      final on = selected == value;
+      return InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: () => onSelect(on && value.isNotEmpty ? '' : value),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: on ? color : color.withValues(alpha: 0.10),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: color.withValues(alpha: on ? 1 : 0.35)),
+          ),
+          child: Text(
+            '$label  $count',
+            style: GoogleFonts.plusJakartaSans(
+              color: on ? Colors.white : color,
+              fontWeight: FontWeight.w700,
+              fontSize: 12,
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          chip('All', '', total, c.textSecondary),
+          for (final st in kAerialFpvStatuses)
+            chip(st, st, counts[st] ?? 0, aerialFpvStatusColor(st)),
+        ],
+      ),
+    );
+  }
+}
+
 class _StudentTile extends StatelessWidget {
+  final int index;
   final Map<String, dynamic> data;
   final CompanyColors c;
   final Color accent;
   final VoidCallback onTap;
 
   const _StudentTile({
+    required this.index,
     required this.data,
     required this.c,
     required this.accent,
@@ -228,11 +462,19 @@ class _StudentTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final name = (data['name'] ?? 'Unnamed').toString();
+    // old records saved names like "1. ARUN K" - drop that typed number
+    final name = aerialFpvCleanName((data['name'] ?? 'Unnamed').toString());
     final phone = (data['phone'] ?? '').toString();
-    final batch = (data['batch'] ?? '').toString();
+    final regNo = (data['regNo'] ?? '').toString();
+    // older records saved the course in "batch"
+    final course = ((data['courseName'] ?? data['batch']) ?? '').toString();
+    final status = (data['status'] ?? '').toString();
     final docCount = ((data['documents'] as List?) ?? []).length;
-    final sub = [if (phone.isNotEmpty) phone, if (batch.isNotEmpty) batch].join('  •  ');
+    final sub = [
+      if (course.isNotEmpty) course,
+      if (regNo.isNotEmpty) 'Reg: $regNo',
+      if (phone.isNotEmpty) phone,
+    ].join('  •  ');
 
     return InkWell(
       onTap: onTap,
@@ -261,18 +503,14 @@ class _StudentTile extends StatelessWidget {
                 color: accent.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: Text(
-                name.isNotEmpty ? name[0].toUpperCase() : '?',
-                style: GoogleFonts.plusJakartaSans(
-                    color: accent, fontWeight: FontWeight.w800, fontSize: 16),
-              ),
+              child: Icon(Icons.person_outline, color: accent, size: 20),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(name,
+                  Text('$index. $name',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.plusJakartaSans(
@@ -280,11 +518,28 @@ class _StudentTile extends StatelessWidget {
                           fontWeight: FontWeight.w700,
                           fontSize: 14)),
                   const SizedBox(height: 2),
-                  Text(sub.isEmpty ? 'No phone' : sub,
+                  Text(sub.isEmpty ? 'No details' : sub,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.plusJakartaSans(
                           color: c.textSecondary, fontSize: 11.5)),
+                  if (status.isNotEmpty) ...[
+                    const SizedBox(height: 5),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: aerialFpvStatusColor(status)
+                            .withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(status,
+                          style: GoogleFonts.plusJakartaSans(
+                              color: aerialFpvStatusColor(status),
+                              fontWeight: FontWeight.w700,
+                              fontSize: 10.5)),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -367,6 +622,7 @@ InputDecoration _dec(CompanyColors c, Color accent, String label) {
 Future<void> showStudentForm(
     BuildContext context, {
       required String category,
+      int? year,
       DocumentSnapshot<Map<String, dynamic>>? doc,
     }) async {
   final c = CompanyColors.of(context.read<ThemeProvider>().isDarkMode);
@@ -376,7 +632,26 @@ Future<void> showStudentForm(
   final name = TextEditingController(text: data['name']?.toString() ?? '');
   final phone = TextEditingController(text: data['phone']?.toString() ?? '');
   final email = TextEditingController(text: data['email']?.toString() ?? '');
-  final batch = TextEditingController(text: data['batch']?.toString() ?? '');
+  final regNo = TextEditingController(text: data['regNo']?.toString() ?? '');
+  final address =
+  TextEditingController(text: data['address']?.toString() ?? '');
+  // older records saved the course in "batch" - show it as the course name
+  final courseName = TextEditingController(
+      text: (data['courseName'] ?? data['batch'])?.toString() ?? '');
+  final batchAllocated =
+  TextEditingController(text: data['batchAllocated']?.toString() ?? '');
+  final batchCompleted =
+  TextEditingController(text: data['batchCompleted']?.toString() ?? '');
+  DateTime? enrolled =
+  data['enrolledDate'] is Timestamp ? (data['enrolledDate'] as Timestamp).toDate() : null;
+  var certificate = (data['certificate'] ?? '').toString();
+  var reviews = (data['reviews'] ?? '').toString();
+  // 0 = "No year". An old record without a year stays in "No year" until a
+  // year is picked; a new student takes the year of the list it was added from.
+  var selYear = data['year'] is int ? data['year'] as int : (year ?? 0);
+  var status = kAerialFpvStatuses.contains(data['status'])
+      ? data['status'].toString()
+      : 'Ongoing';
   final notes = TextEditingController(text: data['notes']?.toString() ?? '');
   final formKey = GlobalKey<FormState>();
 
@@ -472,6 +747,12 @@ Future<void> showStudentForm(
                   ),
                   const SizedBox(height: 10),
                   TextFormField(
+                    controller: regNo,
+                    style: TextStyle(color: c.textPrimary),
+                    decoration: _dec(c, accent, 'Reg No (optional)'),
+                  ),
+                  const SizedBox(height: 10),
+                  TextFormField(
                     controller: phone,
                     keyboardType: TextInputType.phone,
                     style: TextStyle(color: c.textPrimary),
@@ -486,9 +767,134 @@ Future<void> showStudentForm(
                   ),
                   const SizedBox(height: 10),
                   TextFormField(
-                    controller: batch,
+                    controller: address,
+                    maxLines: 2,
                     style: TextStyle(color: c.textPrimary),
-                    decoration: _dec(c, accent, 'Batch / Course (optional)'),
+                    decoration: _dec(c, accent, 'Address (optional)'),
+                  ),
+                  const SizedBox(height: 10),
+                  TextFormField(
+                    controller: courseName,
+                    style: TextStyle(color: c.textPrimary),
+                    decoration: _dec(c, accent, 'Course Name (optional)'),
+                  ),
+                  const SizedBox(height: 10),
+                  InkWell(
+                    borderRadius: BorderRadius.circular(12),
+                    onTap: () async {
+                      final now = DateTime.now();
+                      final picked = await showDatePicker(
+                        context: ctx,
+                        initialDate: enrolled ?? now,
+                        firstDate: DateTime(2015),
+                        lastDate: DateTime(now.year + 5),
+                      );
+                      if (picked != null) setS(() => enrolled = picked);
+                    },
+                    child: InputDecorator(
+                      decoration: _dec(c, accent, 'Enrolled Date (optional)')
+                          .copyWith(
+                        suffixIcon: enrolled == null
+                            ? Icon(Icons.calendar_today_outlined,
+                            size: 18, color: c.textSecondary)
+                            : IconButton(
+                          icon: Icon(Icons.close,
+                              size: 18, color: c.textSecondary),
+                          onPressed: () => setS(() => enrolled = null),
+                        ),
+                      ),
+                      child: Text(
+                        enrolled == null
+                            ? 'Select date'
+                            : aerialFpvFmtDate(enrolled),
+                        style: TextStyle(
+                            color: enrolled == null
+                                ? c.textSecondary
+                                : c.textPrimary),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  TextFormField(
+                    controller: batchAllocated,
+                    style: TextStyle(color: c.textPrimary),
+                    decoration:
+                    _dec(c, accent, 'Batch Allocated (e.g. Jan-23)'),
+                  ),
+                  const SizedBox(height: 10),
+                  TextFormField(
+                    controller: batchCompleted,
+                    style: TextStyle(color: c.textPrimary),
+                    decoration: _dec(c, accent, 'Batch Completed (optional)'),
+                  ),
+                  const SizedBox(height: 12),
+                  aerialFpvYesNo(
+                    c: c,
+                    accent: accent,
+                    label: 'Certificate',
+                    value: certificate,
+                    onChanged: (v) => setS(() => certificate = v),
+                  ),
+                  const SizedBox(height: 8),
+                  aerialFpvYesNo(
+                    c: c,
+                    accent: accent,
+                    label: 'Reviews',
+                    value: reviews,
+                    onChanged: (v) => setS(() => reviews = v),
+                  ),
+                  const SizedBox(height: 12),
+                  Text('STATUS',
+                      style: GoogleFonts.plusJakartaSans(
+                          color: c.textPrimary,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 12.5,
+                          letterSpacing: 1.0)),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final st in kAerialFpvStatuses)
+                        InkWell(
+                          borderRadius: BorderRadius.circular(20),
+                          onTap: () => setS(() => status = st),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: status == st
+                                  ? aerialFpvStatusColor(st)
+                                  : aerialFpvStatusColor(st)
+                                  .withValues(alpha: 0.10),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                  color: aerialFpvStatusColor(st).withValues(
+                                      alpha: status == st ? 1 : 0.35)),
+                            ),
+                            child: Text(st,
+                                style: GoogleFonts.plusJakartaSans(
+                                    color: status == st
+                                        ? Colors.white
+                                        : aerialFpvStatusColor(st),
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 12)),
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  DropdownButtonFormField<int>(
+                    initialValue: selYear,
+                    dropdownColor: c.surface,
+                    style: TextStyle(color: c.textPrimary),
+                    decoration: _dec(c, accent, 'Year'),
+                    items: [
+                      const DropdownMenuItem(value: 0, child: Text('No year')),
+                      for (final y in aerialFpvYearOptions(extra: selYear))
+                        DropdownMenuItem(value: y, child: Text('$y')),
+                    ],
+                    onChanged: (v) => setS(() => selYear = v ?? selYear),
                   ),
                   const SizedBox(height: 10),
                   TextFormField(
@@ -621,7 +1027,18 @@ Future<void> showStudentForm(
                             'name': name.text.trim(),
                             'phone': phone.text.trim(),
                             'email': email.text.trim(),
-                            'batch': batch.text.trim(),
+                            'regNo': regNo.text.trim(),
+                            'address': address.text.trim(),
+                            'courseName': courseName.text.trim(),
+                            'status': status,
+                            'year': selYear,
+                            'enrolledDate': enrolled != null
+                                ? Timestamp.fromDate(enrolled!)
+                                : null,
+                            'batchAllocated': batchAllocated.text.trim(),
+                            'batchCompleted': batchCompleted.text.trim(),
+                            'certificate': certificate,
+                            'reviews': reviews,
                             'notes': notes.text.trim(),
                             'documents': docs,
                           };

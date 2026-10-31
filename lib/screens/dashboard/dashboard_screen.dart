@@ -22,6 +22,8 @@ import '../analytics/analytics_overview_screen.dart';
 import '../admin/employee_access_screen.dart';
 import '../admin/admin_notifications_screen.dart';
 import '../aerial_fpv/aerial_fpv_home_screen.dart'; // NEW
+import '../zone/zone_home_screen.dart'; // NEW
+import '../overall/overall_list_home_screen.dart'; // NEW
 import '../../widgets/role_gated_widget.dart';
 
 /// Dashboard restyled as a flight-instrument / HUD panel: corner-bracket
@@ -516,6 +518,24 @@ class _DashboardScreenState extends State<DashboardScreen>
                                 onTap: () => Navigator.push(context,
                                     MaterialPageRoute(builder: (_) => const AerialFpvHomeScreen())),
                               ),
+                              // ---- NEW: Overall List module ----
+                              _TapColorCard(
+                                title: 'Overall List',
+                                imagePath: 'lib/assets/images/overall_list.png',
+                                color: AppColors.blue,
+                                controller: _pulseController,
+                                onTap: () => Navigator.push(context,
+                                    MaterialPageRoute(builder: (_) => const OverallListHomeScreen())),
+                              ),
+                              // ---- NEW: Zone module ----
+                              _TapColorCard(
+                                title: 'Zone',
+                                imagePath: 'lib/assets/images/zone.png',
+                                color: AppColors.coral,
+                                controller: _pulseController,
+                                onTap: () => Navigator.push(context,
+                                    MaterialPageRoute(builder: (_) => const ZoneHomeScreen())),
+                              ),
                               // ---- Admin facility tile — admin only ----
                               AdminOnly(
                                 child: _TapColorCard(
@@ -639,6 +659,12 @@ class _HudDrawerState extends State<_HudDrawer>
       // ---- NEW: Aerial & FPV ----
       (icon: Icons.flight_takeoff, title: 'Aerial & FPV', color: AppColors.teal, adminOnly: false,
       open: (c) => Navigator.push(c, MaterialPageRoute(builder: (_) => const AerialFpvHomeScreen()))),
+      // ---- NEW: Overall List ----
+      (icon: Icons.format_list_bulleted, title: 'Overall List', color: AppColors.blue, adminOnly: false,
+      open: (c) => Navigator.push(c, MaterialPageRoute(builder: (_) => const OverallListHomeScreen()))),
+      // ---- NEW: Zone ----
+      (icon: Icons.domain, title: 'Zone', color: AppColors.coral, adminOnly: false,
+      open: (c) => Navigator.push(c, MaterialPageRoute(builder: (_) => const ZoneHomeScreen()))),
       // ---- Admin-only extras ----
       (icon: Icons.admin_panel_settings, title: 'Access Hub', color: AppColors.teal, adminOnly: true,
       open: (c) => Navigator.pushNamed(c, AppRoutes.accessHub)),
